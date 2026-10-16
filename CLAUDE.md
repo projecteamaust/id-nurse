@@ -12,7 +12,8 @@ Detailed specs live in `docs/`. Read the relevant file before working on that ar
 - `docs/database.md`: tables and columns
 - `docs/api.md`: endpoints, roles, order states (the contract between frontend and backend)
 - `docs/order-flow-and-arm.md`: order flow, ArmController, Serial protocol
-- `design/`: exported Figma screens (PNG), numbered in screen order
+- `docs/prototype-review.md`: every prototype screen with its text, colors, fonts, actions and API calls
+- `design/prototype/`: Figma prototype code (`src/App.tsx` screens, `src/index.css` colors/fonts)
 
 ## Current build order
 1. Tiny backend skeleton with /health (so the project runs and the API contract exists)
@@ -20,6 +21,23 @@ Detailed specs live in `docs/`. Read the relevant file before working on that ar
 3. Real backend: database + seed, login, orders, dispensing with MockArm
 4. Connect the Flutter screens to the real API (replace MockApiService)
 5. Real arm (Arduino) much later
+
+## Decisions
+Decisions about the Figma prototype. Where the prototype differs, these win.
+1. Nurse login has no password: scan a card/QR (simulated in the demo) or type the employee ID.
+   Supervisors sign in with employee ID + password.
+2. Cancel is allowed only before approval (`PENDING`). The dispensing screen has no cancel button.
+3. No "continue without this item". The backend retries once, then ends the order as `PARTIAL` or `FAILED`,
+   and the screen shows the result.
+4. No supervisor co-approval for large quantities (future feature).
+5. Admin console: only stock, low stock, dispensing log and report export. Other prototype admin pages may come later.
+6. Order states stay `PENDING -> DISPENSING -> DONE | PARTIAL | FAILED`. There is a PARTIAL result screen.
+   "Collect" and "Complete" are frontend-only steps shown after `DONE`.
+7. English only, left-to-right, IBM Plex Sans font.
+8. Items have a `category`. Users have a `ward`. Patients have a date of birth (age is shown) and a room.
+
+Known limitation (mention it in the graduation report): with ID-only nurse login, anyone who knows or copies
+a nurse's employee ID can sign in as that nurse. Accepted for the prototype. Future fix: PIN or encrypted badge.
 
 Work on ONE part and ONE task at a time. Do not build backend and frontend features in the same task.
 
@@ -56,7 +74,7 @@ static/          calibrate.html (supervisor arm calibration page)
 firmware/arm_controller/   Arduino sketch (later)
 tests/           unittest files
 docs/            specs
-design/          Figma exports
+design/          Figma prototype (design/prototype/)
 frontend/        Flutter app
 ```
 
@@ -94,7 +112,7 @@ If PowerShell blocks activating the venv, run once:
 - Flutter + Dart, target: Windows desktop (Android tablet later if time allows)
 - Design screens to adapt to different sizes, so they also work on a tablet
 - Packages: dio, provider, go_router, intl, shared_preferences
-- Arabic first: RTL layout, Arabic-capable font, intl formatting
+- English only, left-to-right layout. Font: IBM Plex Sans. `intl` for date/number formatting
 
 ### Layout
 ```
@@ -120,11 +138,11 @@ frontend/lib/
 8. Run `flutter analyze` and `flutter test` before saying a task is done.
 
 ### Screens (in order of building)
-1. Login (employee ID + password)
+1. Login (nurse: scan card or enter employee ID; supervisor: employee ID + password)
 2. Patient file number (enter or scan)
 3. Item selection with quantities and available stock
 4. Order review and approval
-5. Order status (preparing, delivered, partial failure)
+5. Order status (preparing, collect/complete, partial result, failed)
 6. Supervisor dashboard (stock, low stock, dispensing log, report export)
 
 ### Commands (run inside frontend/)
