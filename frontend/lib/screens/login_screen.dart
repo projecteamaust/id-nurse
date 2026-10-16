@@ -104,24 +104,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint;
+    final narrow = MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint;
     return Scaffold(
       body: Column(
         children: [
           TopBar(onAdmin: _showAdminNotReady),
           Expanded(
             child: LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: compact ? AppSpacing.mobileGutter : AppSpacing.pagePaddingX,
-                  vertical: AppSpacing.pagePaddingY,
-                ),
-                child: ConstrainedBox(
-                  // Center the card vertically when there is room (.auth-wrap).
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 2 * AppSpacing.pagePaddingY),
-                  child: Center(child: _buildCard(compact)),
-                ),
-              ),
+              builder: (context, constraints) {
+                // Short window (e.g. 1280x720, 1280x800): use smaller paddings and keypad
+                // so everything fits without scrolling. The scroll view stays as a safety net.
+                final short = constraints.maxHeight < AppSpacing.compactHeightBreakpoint;
+                final pagePaddingY = short ? AppSpacing.pagePaddingYShort : AppSpacing.pagePaddingY;
+                return SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: narrow ? AppSpacing.mobileGutter : AppSpacing.pagePaddingX,
+                    vertical: pagePaddingY,
+                  ),
+                  child: ConstrainedBox(
+                    // Center the card vertically when there is room (.auth-wrap).
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight - 2 * pagePaddingY),
+                    child: Center(child: _buildCard(narrow: narrow, short: short)),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -129,12 +135,15 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildCard(bool compact) {
+  Widget _buildCard({required bool narrow, required bool short}) {
+    final sectionGap = short ? AppSpacing.gapM : AppSpacing.gapXxl;
     return Container(
       constraints: const BoxConstraints(maxWidth: AppSpacing.narrowCardMaxWidth),
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? AppSpacing.gapXxl : AppSpacing.authCardPaddingX,
-        vertical: compact ? AppSpacing.gapXxl : AppSpacing.authCardPaddingY,
+        horizontal: narrow ? AppSpacing.gapXxl : AppSpacing.authCardPaddingX,
+        vertical: short
+            ? AppSpacing.authCardPaddingYShort
+            : (narrow ? AppSpacing.gapXxl : AppSpacing.authCardPaddingY),
       ),
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -147,12 +156,19 @@ class _LoginScreenState extends State<LoginScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text('Identify yourself', style: AppText.h1),
-          const SizedBox(height: AppSpacing.gapS),
+          SizedBox(height: short ? AppSpacing.gapXxs : AppSpacing.gapS),
           Text('Scan your nurse card or enter your ID.', style: AppText.bodyMuted),
-          const SizedBox(height: AppSpacing.gapXxl),
-          _buildTabs(),
-          const SizedBox(height: AppSpacing.gapXxl),
-          if (_error != null) AppAlert(message: _error!, tone: AlertTone.error),
+          SizedBox(height: sectionGap),
+          _buildTabs(short: short),
+          SizedBox(height: sectionGap),
+          if (_error != null)
+            AppAlert(
+              message: _error!,
+              tone: AlertTone.error,
+              margin: short
+                  ? const EdgeInsets.only(bottom: AppSpacing.gapM)
+                  : const EdgeInsets.symmetric(vertical: AppSpacing.gapL),
+            ),
           if (_tab == _LoginTab.scan)
             _buildScanPanel()
           else
@@ -163,6 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
               buttonLabel: 'Find my ID',
               hasError: _error != null,
               busy: _busy,
+              dense: short,
               onSubmit: () => _login(_idController.text, LoginMethod.manual),
             ),
         ],
@@ -171,14 +188,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   /// "Scan card | Enter ID" tabs (.tabs): active tab has teal text and a 3 px teal underline.
-  Widget _buildTabs() {
+  Widget _buildTabs({required bool short}) {
     Widget tab(String label, _LoginTab value) {
       final active = _tab == value;
       return Expanded(
         child: InkWell(
           onTap: _busy ? null : () => _selectTab(value),
           child: Container(
-            height: AppSpacing.tabHeight,
+            height: short ? AppSpacing.tabHeightShort : AppSpacing.tabHeight,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               border: Border(

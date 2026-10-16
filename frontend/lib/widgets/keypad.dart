@@ -10,6 +10,8 @@ class Keypad extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback onBack;
   final bool enabled;
+  final double buttonHeight;
+  final double gap;
 
   const Keypad({
     super.key,
@@ -17,6 +19,8 @@ class Keypad extends StatelessWidget {
     required this.onClear,
     required this.onBack,
     this.enabled = true,
+    this.buttonHeight = AppSpacing.keypadButtonHeight,
+    this.gap = AppSpacing.keypadGap,
   });
 
   @override
@@ -24,7 +28,7 @@ class Keypad extends StatelessWidget {
     Widget key(String label, VoidCallback action) => AppButton(
           label: label,
           variant: AppButtonVariant.secondary,
-          height: AppSpacing.keypadButtonHeight,
+          height: buttonHeight,
           textStyle: AppText.keypadButton,
           expand: true,
           onPressed: enabled ? action : null,
@@ -38,7 +42,7 @@ class Keypad extends StatelessWidget {
     Widget row(List<Widget> keys) => Row(
           children: [
             for (var i = 0; i < keys.length; i++) ...[
-              if (i > 0) const SizedBox(width: AppSpacing.keypadGap),
+              if (i > 0) SizedBox(width: gap),
               Expanded(child: keys[i]),
             ],
           ],
@@ -50,7 +54,7 @@ class Keypad extends StatelessWidget {
         children: [
           for (final digits in rows) ...[
             row([for (final d in digits) key(d, () => onDigit(d))]),
-            const SizedBox(height: AppSpacing.keypadGap),
+            SizedBox(height: gap),
           ],
           row([key('Clear', onClear), key('0', () => onDigit('0')), key('Back', onBack)]),
         ],

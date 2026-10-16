@@ -10,8 +10,14 @@ enum AlertTone { warning, error, success }
 class AppAlert extends StatelessWidget {
   final String message;
   final AlertTone tone;
+  final EdgeInsetsGeometry margin;
 
-  const AppAlert({super.key, required this.message, this.tone = AlertTone.warning});
+  const AppAlert({
+    super.key,
+    required this.message,
+    this.tone = AlertTone.warning,
+    this.margin = const EdgeInsets.symmetric(vertical: AppSpacing.gapL),
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +28,7 @@ class AppAlert extends StatelessWidget {
     };
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: AppSpacing.gapL),
+      margin: margin,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: background,

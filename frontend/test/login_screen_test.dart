@@ -10,8 +10,8 @@ void main() {
   setUp(() => api = MockApiService());
   tearDown(() => api.dispose());
 
-  Future<void> openApp(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1280, 1100);
+  Future<void> openApp(WidgetTester tester, {Size size = const Size(1280, 1100)}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(IdNurseApp(api: api));
@@ -121,6 +121,47 @@ void main() {
     expect(find.text('Reading card…'), findsWidgets);
     await tester.pumpAndSettle();
     expect(find.text('Signed in as Maya Chen'), findsOneWidget);
+  });
+
+  group('Enter ID tab fits on short screens without scrolling', () {
+    /// How far the login page could scroll (0 = everything fits).
+    double pageScrollExtent(WidgetTester tester) => tester
+        .state<ScrollableState>(find
+            .descendant(of: find.byType(SingleChildScrollView), matching: find.byType(Scrollable))
+            .first)
+        .position
+        .maxScrollExtent;
+
+    for (final size in const [Size(1280, 720), Size(1280, 800)]) {
+      for (final withError in [false, true]) {
+        final label = '${size.width.toInt()}x${size.height.toInt()}${withError ? ' with error' : ''}';
+        testWidgets(label, (tester) async {
+          await openApp(tester, size: size);
+          await openEnterIdTab(tester);
+          if (withError) {
+            await tapKeys(tester, '9999');
+            await tester.tap(find.text('Find my ID'));
+            await tester.pumpAndSettle();
+            expect(find.textContaining('No staff ID found'), findsOneWidget);
+          }
+          final button = tester.getRect(find.widgetWithText(FilledButton, 'Find my ID'));
+          expect(button.bottom, lessThanOrEqualTo(size.height));
+          expect(pageScrollExtent(tester), 0);
+        });
+      }
+    }
+
+    testWidgets('tall screens keep the normal 64 px keypad', (tester) async {
+      await openApp(tester, size: const Size(1920, 1080));
+      await openEnterIdTab(tester);
+      expect(tester.getSize(find.widgetWithText(OutlinedButton, '5')).height, 64);
+    });
+
+    testWidgets('short screens use the smaller keypad', (tester) async {
+      await openApp(tester, size: const Size(1280, 720));
+      await openEnterIdTab(tester);
+      expect(tester.getSize(find.widgetWithText(OutlinedButton, '5')).height, 48);
+    });
   });
 
   testWidgets('demo "Simulate card scan" button signs in the demo nurse', (tester) async {
