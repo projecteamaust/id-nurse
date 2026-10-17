@@ -171,6 +171,8 @@ void main() {
     expect(find.text('Your items are ready'), findsOneWidget);
 
     // The request was cleared: Supplies starts empty for the next patient.
+    await tester.tap(find.text('I have collected my items'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('New request'));
     await tester.pumpAndSettle();
     await tapDigits(tester, '284913');

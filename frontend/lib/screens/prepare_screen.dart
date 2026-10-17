@@ -302,19 +302,12 @@ class _PrepareScreenState extends State<PrepareScreen> {
     );
   }
 
-  /// "2 of 3" and a chip: Dispensed (all), Partly (some) or Not dispensed (none).
-  Widget _resultRow(OrderItem line, AppScale scale) {
-    final (String label, ChipTone tone) = line.qtyDispensed >= line.qtyRequested
-        ? ('Dispensed', ChipTone.success)
-        : line.qtyDispensed > 0
-            ? ('Partly', ChipTone.warning)
-            : ('Not dispensed', ChipTone.error);
-    return OrderLineRow(
-      name: line.name,
-      slotNumber: line.slotNumber,
-      quantity: '${line.qtyDispensed} of ${line.qtyRequested}',
-      status: StatusChip(label: label, tone: tone, scale: scale),
-      scale: scale,
-    );
-  }
+  /// "2 of 3" and a chip: Dispensed, Partly or Not dispensed.
+  Widget _resultRow(OrderItem line, AppScale scale) => OrderLineRow(
+        name: line.name,
+        slotNumber: line.slotNumber,
+        quantity: '${line.qtyDispensed} of ${line.qtyRequested}',
+        status: dispenseResultChip(line, scale),
+        scale: scale,
+      );
 }

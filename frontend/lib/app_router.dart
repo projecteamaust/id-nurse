@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import 'screens/collect_screen.dart';
+import 'screens/complete_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/patient_screen.dart';
 import 'screens/prepare_screen.dart';
@@ -33,6 +34,11 @@ GoRouter buildRouter(AuthState auth) {
         path: '/collect/:orderId',
         redirect: _requireOrderId,
         builder: (context, state) => CollectScreen(orderId: _orderId(state)!),
+      ),
+      GoRoute(
+        path: '/complete/:orderId',
+        redirect: _requireOrderId,
+        builder: (context, state) => CompleteScreen(orderId: _orderId(state)!),
       ),
     ],
   );

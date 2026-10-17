@@ -2,13 +2,26 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../models/order.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text.dart';
+import 'status_chip.dart';
 
 /// "2 units", "1 unit".
 String unitsLabel(int n) => '$n ${n == 1 ? 'unit' : 'units'}';
+
+/// Result chip for one order line: Dispensed (all), Partly (some) or Not dispensed (none).
+/// Used by the Prepare result and the Complete receipt so both use the same words.
+StatusChip dispenseResultChip(OrderItem line, AppScale scale) {
+  final (String label, ChipTone tone) = line.qtyDispensed >= line.qtyRequested
+      ? ('Dispensed', ChipTone.success)
+      : line.qtyDispensed > 0
+          ? ('Partly', ChipTone.warning)
+          : ('Not dispensed', ChipTone.error);
+  return StatusChip(label: label, tone: tone, scale: scale);
+}
 
 /// Bordered list of [OrderLineRow]s with dividers (.review-list). Sized to its rows;
 /// if there are more rows than fit, it scrolls inside its own box (never the page).

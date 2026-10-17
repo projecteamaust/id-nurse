@@ -36,6 +36,8 @@ class AppColors {
   static const drawerBorder = Color(0xFFAAC2BE); // .drawer
   static const stageInactive = Color(0xFF93A5A2); // .working-steps > div
   static const doorOpen = Color(0xFF253C39);
+  static const pickupBox = Color(0xFFE6EDEC); // .door (closed), used for the pickup box
+  static const pickupBoxBorder = Color(0xFF99AEAB);
   static const toast = Color(0xFF12302D);
   static const adminSidebar = Color(0xFF102E2B);
   static const adminSidebarText = Color(0xFFB9CDCA);

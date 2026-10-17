@@ -97,4 +97,13 @@ class AppSpacing {
   static const double robotContentGap = 24; // .robot-content
   static const double lineStatusWidth = 120; // status chip column on the Prepare result (times the text factor)
   static const double summaryTotalGap = 30; // .summary-total
+  // Collect and Complete screens
+  static const double readyIconSize = 64; // .ready-icon, .complete-head > span
+  static const double pickupBoxWidth = 290; // .door
+  static const double pickupBoxHeight = 120;
+  static const double pickupBoxBorderWidth = 5;
+  static const double pickupBoxRadius = 14;
+  static const double completeHeadGap = 18; // .complete-head
+  static const double receiptCellPaddingX = 20; // .receipt-grid > div
+  static const double receiptCellPaddingY = 16;
 }

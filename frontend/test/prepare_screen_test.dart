@@ -113,9 +113,7 @@ void main() {
     expect(find.text('Slot 1 ✓'), findsOneWidget); // finished slot in the cabinet
 
     await pumpUntilFound(tester, find.text('Your items are ready'));
-    await tester.tap(find.text('New request'));
-    await tester.pumpAndSettle();
-    expect(find.text('Which patient?'), findsOneWidget);
+    expect(find.text('I have collected my items'), findsOneWidget); // Collect: test/collect_complete_test.dart
   });
 
   testWidgets('there is no cancel button while the robot works', (tester) async {
