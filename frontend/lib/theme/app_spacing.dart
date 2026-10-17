@@ -81,6 +81,8 @@ class AppSpacing {
   // Review screen
   static const double reviewLinePaddingX = 20; // .review-list > div
   static const double reviewLinePaddingY = 10; // prototype 16; compact one-row lines so 5 fit
-  static const double reviewUnitsWidth = 90; // right column with "n units"
+  static const double reviewUnitsWidth = 90; // right column with "n units" (times the text factor)
+  static const double reviewSlotGap = 24; // between "Slot n" and the quantity column
+  static const double reviewSlotGapMin = 16;
   static const double summaryTotalGap = 30; // .summary-total
 }

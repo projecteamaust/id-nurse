@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:id_nurse/main.dart';
 import 'package:id_nurse/models/order.dart';
@@ -116,6 +117,36 @@ void main() {
     expect(find.text('1 unit'), findsOneWidget);
     expect(find.text('Total'), findsOneWidget);
     expect(find.text('3 units'), findsOneWidget);
+  });
+
+  group('slot label and quantity are separate texts with clear space between them', () {
+    // 1280x720 is the tightest case (spacing at its 0.6 minimum); 1920x1080 the largest.
+    for (final size in const [Size(1280, 720), Size(1920, 1080)]) {
+      testWidgets('${size.width.toInt()}x${size.height.toInt()}', (tester) async {
+        await openReview(tester, size: size);
+
+        // Where the quantity's letters actually start: the text is right-aligned inside
+        // its fixed-width column, so subtract the drawn text width from the right edge.
+        double glyphLeft(Finder text) =>
+            tester.getRect(text).right - tester.renderObject<RenderParagraph>(text).textSize.width;
+
+        for (final (slot, units) in [('Slot 1', '2 units'), ('Slot 2', '1 unit')]) {
+          final slotFinder = find.text(slot);
+          final unitsFinder = find.text(units);
+          expect(slotFinder, findsOneWidget);
+          expect(unitsFinder, findsOneWidget);
+          final gap = glyphLeft(unitsFinder) - tester.getRect(slotFinder).right;
+          expect(gap, greaterThanOrEqualTo(16), reason: '"$slot" and "$units" must not touch (gap: $gap px)');
+        }
+
+        // The quantity column has the same width and right edge in every row.
+        final columns = tester.widgetList(find.byKey(const Key('review-units'))).length;
+        expect(columns, 2);
+        final rects = [for (var i = 0; i < columns; i++) tester.getRect(find.byKey(const Key('review-units')).at(i))];
+        expect(rects[1].width, rects[0].width);
+        expect(rects[1].right, rects[0].right);
+      });
+    }
   });
 
   testWidgets('"Edit items" goes back to Supplies with the request kept', (tester) async {

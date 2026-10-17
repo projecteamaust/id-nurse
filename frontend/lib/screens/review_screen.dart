@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -172,9 +174,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   ),
                   SizedBox(width: scale.size(AppSpacing.gapL)),
                   Text('Slot ${line.item.slotNumber}', style: scale.text(AppText.small.copyWith(fontSize: 14))),
+                  // Clear gap before the quantity, never smaller than 16 px on short windows.
+                  SizedBox(width: math.max(AppSpacing.reviewSlotGapMin, scale.size(AppSpacing.reviewSlotGap))),
+                  // Fixed-width, right-aligned quantity column so all rows line up. It grows
+                  // with the text size (not the spacing), so "30 units" always fits.
                   SizedBox(
-                    width: scale.size(AppSpacing.reviewUnitsWidth),
-                    child: Text(_units(line.qty), style: scale.strong, textAlign: TextAlign.right),
+                    key: const Key('review-units'),
+                    width: AppSpacing.reviewUnitsWidth * scale.textFactor,
+                    child: Text(_units(line.qty), style: scale.strong, textAlign: TextAlign.right, maxLines: 1),
                   ),
                 ],
               ),
