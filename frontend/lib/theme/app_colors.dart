@@ -27,6 +27,8 @@ class AppColors {
   static const neutralChip = Color(0xFFEDF2F1); // .chip
   static const surfaceSoft = Color(0xFFFBFDFC); // .profile-card, .patient-card
   static const tableHeader = Color(0xFFF7FAF9);
+  static const supplyDisabledBg = Color(0xFFF8FAF9); // .supply-card.disabled
+  static const supplyDisabledText = Color(0xFF7C918E);
   static const disabledStep = Color(0xFF8AA09D);
   static const stepDot = Color(0xFF9DB0AD);
   static const cabinet = Color(0xFFEDF3F2);

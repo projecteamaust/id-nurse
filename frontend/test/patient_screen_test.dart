@@ -100,13 +100,14 @@ void main() {
     expect(findPatientButton(tester).onPressed, isNull);
   });
 
-  testWidgets('"Yes, select supplies" says the next step comes later', (tester) async {
+  testWidgets('"Yes, select supplies" opens the Supplies screen for that patient', (tester) async {
     await openPatientScreen(tester);
     await findPatient(tester, '548220');
     expect(find.text('Sam Taylor'), findsOneWidget);
     await tester.tap(find.text('Yes, select supplies'));
-    await tester.pump();
-    expect(find.text('Supply selection comes in a later step.'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('PATIENT 548220'), findsOneWidget);
+    expect(find.text('Your request'), findsOneWidget);
   });
 
   testWidgets('Sign out returns to the login screen', (tester) async {

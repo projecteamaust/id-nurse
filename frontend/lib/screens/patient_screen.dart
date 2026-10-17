@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../models/patient.dart';
 import '../services/api_service.dart';
+import '../services/order_draft.dart';
 import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/app_alert.dart';
@@ -84,10 +86,10 @@ class _PatientScreenState extends State<PatientScreen> {
     setState(() => _patient = null);
   }
 
-  void _showSuppliesNotReady() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Supply selection comes in a later step.')),
-    );
+  /// "Yes, select supplies": remember the patient for the request, then go to step 3.
+  void _selectSupplies(Patient patient) {
+    context.read<OrderDraft>().start(patient);
+    context.go('/supplies');
   }
 
   @override
@@ -176,7 +178,7 @@ class _PatientScreenState extends State<PatientScreen> {
           children: [
             AppButton(
               label: 'Yes, select supplies',
-              onPressed: _showSuppliesNotReady,
+              onPressed: () => _selectSupplies(patient),
               height: scale.buttonHeight,
               textStyle: scale.button,
             ),

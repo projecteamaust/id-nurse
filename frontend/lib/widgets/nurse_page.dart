@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
+import '../services/order_draft.dart';
 import '../theme/app_scale.dart';
 import 'scaled_page.dart';
 import 'top_bar.dart';
@@ -14,10 +15,13 @@ class NursePage extends StatelessWidget {
   /// Index in [StepTracker.steps] of this screen.
   final int step;
 
+  /// See [ScaledPage.withCard].
+  final bool withCard;
+
   /// Builds what goes inside the card (see [ScaledPage.builder]).
   final Widget Function(BuildContext context, AppScale scale) builder;
 
-  const NursePage({super.key, required this.step, required this.builder});
+  const NursePage({super.key, required this.step, this.withCard = true, required this.builder});
 
   @override
   Widget build(BuildContext context) {
@@ -26,12 +30,14 @@ class NursePage extends StatelessWidget {
 
     void signOut() {
       context.read<ApiService>().signOut();
+      context.read<OrderDraft>().clear(); // forget the patient and the request
       context.read<AuthState>().signOut(); // the router then sends us to /login
     }
 
     return ScaledPage(
       topBar: TopBar(user: user, onSignOut: signOut),
       step: step,
+      withCard: withCard,
       builder: builder,
     );
   }

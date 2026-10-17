@@ -9,4 +9,8 @@ class AppConfig {
 
   /// Employee ID the demo "Simulate card scan" button sends (the seed nurse).
   static const demoNurseId = '48216';
+
+  /// Most units of one item in one order. Must match the backend setting
+  /// MAX_QTY_PER_ITEM (default 30, docs/api.md); the server rejects more with 422.
+  static const maxQtyPerItem = 30;
 }

@@ -6,6 +6,7 @@ import 'app_router.dart';
 import 'services/api_service.dart';
 import 'services/auth_state.dart';
 import 'services/mock_api_service.dart';
+import 'services/order_draft.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -25,11 +26,13 @@ class IdNurseApp extends StatefulWidget {
 
 class _IdNurseAppState extends State<IdNurseApp> {
   final _auth = AuthState();
+  final _draft = OrderDraft();
   late final GoRouter _router = buildRouter(_auth);
 
   @override
   void dispose() {
     _router.dispose();
+    _draft.dispose();
     _auth.dispose();
     super.dispose();
   }
@@ -40,6 +43,7 @@ class _IdNurseAppState extends State<IdNurseApp> {
       providers: [
         Provider<ApiService>.value(value: widget.api),
         ChangeNotifierProvider<AuthState>.value(value: _auth),
+        ChangeNotifierProvider<OrderDraft>.value(value: _draft),
       ],
       child: MaterialApp.router(
         title: 'ID Nurse',

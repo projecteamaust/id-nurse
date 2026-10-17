@@ -14,6 +14,7 @@ class AppButton extends StatelessWidget {
   final double height;
   final TextStyle? textStyle;
   final bool expand; // fill the available width
+  final EdgeInsetsGeometry? padding; // null = theme padding (0 24 px)
 
   const AppButton({
     super.key,
@@ -23,6 +24,7 @@ class AppButton extends StatelessWidget {
     this.height = AppSpacing.buttonHeight,
     this.textStyle,
     this.expand = false,
+    this.padding,
   });
 
   @override
@@ -32,18 +34,19 @@ class AppButton extends StatelessWidget {
     final Widget button = switch (variant) {
       AppButtonVariant.primary => FilledButton(
           onPressed: onPressed,
-          style: FilledButton.styleFrom(minimumSize: size),
+          style: FilledButton.styleFrom(minimumSize: size, padding: padding),
           child: text,
         ),
       AppButtonVariant.secondary => OutlinedButton(
           onPressed: onPressed,
-          style: OutlinedButton.styleFrom(minimumSize: size),
+          style: OutlinedButton.styleFrom(minimumSize: size, padding: padding),
           child: text,
         ),
       AppButtonVariant.danger => OutlinedButton(
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
             minimumSize: size,
+            padding: padding,
             foregroundColor: AppColors.error,
             backgroundColor: AppColors.dangerBg,
             side: const BorderSide(color: AppColors.dangerBorder),
@@ -52,7 +55,7 @@ class AppButton extends StatelessWidget {
         ),
       AppButtonVariant.ghost => TextButton(
           onPressed: onPressed,
-          style: TextButton.styleFrom(minimumSize: size),
+          style: TextButton.styleFrom(minimumSize: size, padding: padding),
           child: text,
         ),
     };

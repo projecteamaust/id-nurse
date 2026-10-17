@@ -58,4 +58,23 @@ class AppSpacing {
   static const double keypadButtonMaxHeight = 96;
   static const double fieldPaddingY = 14;
   static const double scanPanelPadding = 28; // .scan-panel
+
+  // Supplies screen (.supply-layout and friends)
+  static const double categoryPanelWidth = 230;
+  static const double cartPanelWidth = 320;
+  static const double categoryPanelWidthNarrow = 210; // @media (max-width: 1250px)
+  static const double cartPanelWidthNarrow = 290;
+  static const double supplyLayoutBreakpoint = 1000; // below this window width: narrow panels
+  static const double sidePanelPaddingX = 20; // .category-panel, .cart-panel
+  static const double sidePanelPaddingY = 24;
+  static const double supplyCenterPadding = 24; // .supply-center
+  static const double supplyGridGap = 14; // .supply-grid
+  static const double supplyCardMinColumnWidth = 240;
+  static const double supplyCardMinHeight = 258; // .supply-card
+  static const double supplyCardPadding = 18;
+  static const double searchFieldHeight = 50; // .search input
+  static const double categoryButtonHeight = 52; // .category-panel nav button
+  static const double stepperButtonWidth = 56; // .stepper
+  static const double stepperButtonHeight = 52;
+  static const double cartEmptyIconSize = 50; // .cart-empty span
 }

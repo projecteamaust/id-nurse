@@ -17,6 +17,10 @@ class ScaledPage extends StatelessWidget {
   /// Index in [StepTracker.steps] of this screen, or null for no step tracker (login).
   final int? step;
 
+  /// False: no page padding and no card; the content fills the whole area edge to edge
+  /// (Supplies, prototype .supply-layout).
+  final bool withCard;
+
   /// Prototype sizes of the card; the padding is scaled.
   final double cardMaxWidth;
   final double cardPaddingX;
@@ -28,7 +32,7 @@ class ScaledPage extends StatelessWidget {
   /// Smallest height of the area below the top bar (and step tracker) that the content fits in.
   final double minFitHeight;
 
-  /// Builds what goes inside the card. The child always gets a bounded height,
+  /// Builds what goes inside the card (or the whole area without a card). The child always gets a bounded height,
   /// so it can use Expanded/Flexible to fill the card.
   final Widget Function(BuildContext context, AppScale scale) builder;
 
@@ -36,6 +40,7 @@ class ScaledPage extends StatelessWidget {
     super.key,
     required this.topBar,
     this.step,
+    this.withCard = true,
     this.cardMaxWidth = AppSpacing.mainCardMaxWidth,
     this.cardPaddingX = AppSpacing.cardPadding,
     this.cardPaddingY = AppSpacing.cardPadding,
@@ -56,33 +61,38 @@ class ScaledPage extends StatelessWidget {
     final bodyHeight = window.height - AppSpacing.topBarHeight - (step == null ? 0 : AppSpacing.stepTrackerHeight);
     final narrow = window.width < AppSpacing.compactBreakpoint;
 
-    final body = Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: narrow ? AppSpacing.mobileGutter : AppSpacing.pagePaddingX,
-        vertical: scale.size(AppSpacing.pagePaddingY),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: cardMaxWidth),
-          child: Container(
-            key: const Key('page-card'),
-            width: double.infinity,
-            height: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: scale.size(narrow ? AppSpacing.gapXxl : cardPaddingX),
-              vertical: scale.size(narrow ? AppSpacing.gapXxl : cardPaddingY),
+    final Widget body;
+    if (!withCard) {
+      body = builder(context, scale);
+    } else {
+      body = Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: narrow ? AppSpacing.mobileGutter : AppSpacing.pagePaddingX,
+          vertical: scale.size(AppSpacing.pagePaddingY),
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: cardMaxWidth),
+            child: Container(
+              key: const Key('page-card'),
+              width: double.infinity,
+              height: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: scale.size(narrow ? AppSpacing.gapXxl : cardPaddingX),
+                vertical: scale.size(narrow ? AppSpacing.gapXxl : cardPaddingY),
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
+                boxShadow: const [BoxShadow(color: AppColors.cardShadow, blurRadius: 20, offset: Offset(0, 6))],
+              ),
+              child: builder(context, scale),
             ),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              border: Border.all(color: AppColors.border),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-              boxShadow: const [BoxShadow(color: AppColors.cardShadow, blurRadius: 20, offset: Offset(0, 6))],
-            ),
-            child: builder(context, scale),
           ),
         ),
-      ),
-    );
+      );
+    }
 
     return Scaffold(
       body: Column(
