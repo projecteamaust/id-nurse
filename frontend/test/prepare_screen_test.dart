@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:id_nurse/main.dart';
 import 'package:id_nurse/models/item.dart';
 import 'package:id_nurse/models/login_response.dart';
+import 'package:id_nurse/models/low_stock_item.dart';
 import 'package:id_nurse/models/order.dart';
 import 'package:id_nurse/models/order_summary.dart';
 import 'package:id_nurse/models/patient.dart';
@@ -47,6 +48,8 @@ class _NoDemoApi implements ApiService {
   @override
   Future<List<Item>> getItems({String? category, String? search}) =>
       inner.getItems(category: category, search: search);
+  @override
+  Future<List<LowStockItem>> getLowStock() => inner.getLowStock();
   @override
   Future<Item> updateItemQuantity(int itemId, int quantity) => inner.updateItemQuantity(itemId, quantity);
   @override

@@ -70,6 +70,7 @@ class _StockScreenState extends State<StockScreen> {
     );
     if (updated == null || !mounted) return;
     setState(() => _items = [for (final i in _items!) i.id == updated.id ? updated : i]);
+    context.read<AdminCounts>().lowStock = _items!.where((i) => i.lowStock).length; // sidebar badge
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Stock updated: ${updated.name}, ${updated.quantity} units.'),

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:id_nurse/models/item.dart';
 import 'package:id_nurse/models/login_response.dart';
+import 'package:id_nurse/models/low_stock_item.dart';
 import 'package:id_nurse/models/order.dart';
 import 'package:id_nurse/models/order_summary.dart';
 import 'package:id_nurse/models/patient.dart';
@@ -24,6 +25,17 @@ void main() {
     expect(login.user.name, 'Maya Chen');
     expect(login.user.isSupervisor, isFalse);
     expect(login.toJson(), json);
+  });
+
+  test('LowStockItem matches GET /reports/low-stock', () {
+    final json = _parse('''
+      { "id": 4, "name": "10 ml syringe", "sku": "IV-002", "category": "IV and injections",
+        "slot_number": 4, "quantity": 0, "min_quantity": 10, "low_stock": true, "qty_to_minimum": 10 }
+    ''');
+    final low = LowStockItem.fromJson(json);
+    expect(low.item.outOfStock, isTrue);
+    expect(low.qtyToMinimum, 10);
+    expect(low.toJson(), json);
   });
 
   test('Patient matches GET /patients/{file_number}', () {

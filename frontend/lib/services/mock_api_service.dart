@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../models/item.dart';
 import '../models/login_response.dart';
+import '../models/low_stock_item.dart';
 import '../models/order.dart';
 import '../models/order_summary.dart';
 import '../models/patient.dart';
@@ -148,6 +149,21 @@ class MockApiService implements ApiService, DemoControls {
     item['quantity'] = quantity;
     _writeAudit(user, 'stock_edit', {'item_id': itemId, 'old_quantity': old, 'new_quantity': quantity});
     return Item.fromJson(_itemJson(item));
+  }
+
+  @override
+  Future<List<LowStockItem>> getLowStock() async {
+    await _delay();
+    _requireSupervisor();
+    final low = _items.map(_itemJson).where((i) => i['low_stock'] as bool).toList()
+      ..sort((a, b) {
+        final byQty = (a['quantity'] as int).compareTo(b['quantity'] as int);
+        return byQty != 0 ? byQty : (a['name'] as String).compareTo(b['name'] as String);
+      });
+    return [
+      for (final i in low)
+        LowStockItem.fromJson({...i, 'qty_to_minimum': (i['min_quantity'] as int) - (i['quantity'] as int)}),
+    ];
   }
 
   // ---------------------------------------------------------------- orders

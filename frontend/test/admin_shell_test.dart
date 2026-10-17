@@ -75,7 +75,7 @@ void main() {
       expect(navColor(tester, '/supervisor/problems'), Colors.transparent);
       expect(find.byKey(const Key('admin-card')), findsOneWidget);
       // Pages not built yet still show the placeholder.
-      const built = {'/supervisor/stock'};
+      const built = {'/supervisor/stock', '/supervisor/low-stock'};
       expect(find.text('This page is added in the next step.'), built.contains(item.path) ? findsNothing : findsOneWidget);
     }
 
@@ -89,7 +89,7 @@ void main() {
     api = fastApi();
     await seedReports(tester, 2);
     await openDashboard(tester);
-    final badge = find.byKey(const Key('nav-badge'));
+    final badge = find.byKey(const ValueKey('nav-badge-/supervisor/problems'));
     expect(find.descendant(of: badge, matching: find.text('2')), findsOneWidget);
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Mark resolved').first);

@@ -1,5 +1,6 @@
 import '../models/item.dart';
 import '../models/login_response.dart';
+import '../models/low_stock_item.dart';
 import '../models/order.dart';
 import '../models/order_summary.dart';
 import '../models/patient.dart';
@@ -58,6 +59,9 @@ abstract class ApiService {
 
   /// PATCH /items/{id} with {quantity} (supervisor) -> the updated item
   Future<Item> updateItemQuantity(int itemId, int quantity);
+
+  /// GET /reports/low-stock (supervisor): items at or below their minimum, lowest first
+  Future<List<LowStockItem>> getLowStock();
 
   /// POST /orders -> order with status PENDING
   Future<Order> createOrder(String patientFileNumber, List<OrderLineRequest> items);

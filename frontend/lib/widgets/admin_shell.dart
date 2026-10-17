@@ -33,6 +33,7 @@ const adminNavItems = [
 /// so the badge always matches the page.
 class AdminCounts extends ChangeNotifier {
   int? _openReports;
+  int? _lowStock;
 
   /// Open problem reports, or null before the first load.
   int? get openReports => _openReports;
@@ -43,10 +44,30 @@ class AdminCounts extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Items at or below their minimum, or null before the first load.
+  int? get lowStock => _lowStock;
+
+  set lowStock(int? value) {
+    if (value == _lowStock) return;
+    _lowStock = value;
+    notifyListeners();
+  }
+
+  /// The badge number for a sidebar page, or null for no badge (unknown or 0).
+  int? badgeFor(String path) {
+    final count = switch (path) {
+      '/supervisor/problems' => _openReports,
+      '/supervisor/low-stock' => _lowStock,
+      _ => null,
+    };
+    return (count ?? 0) > 0 ? count : null;
+  }
+
   /// Loads the counts from the API. A failed load keeps the old numbers.
   Future<void> refresh(ApiService api) async {
     try {
       openReports = (await api.listProblemReports()).length;
+      lowStock = (await api.getLowStock()).length;
     } catch (_) {
       // The page itself shows the error; the badge just stays as it was.
     }
@@ -159,7 +180,7 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final openReports = context.watch<AdminCounts>().openReports;
+    final counts = context.watch<AdminCounts>();
     final initials = userName.split(' ').where((p) => p.isNotEmpty).map((p) => p[0]).take(2).join();
     const footText = TextStyle(fontFamily: AppText.fontFamily, fontSize: 14, color: Colors.white);
 
@@ -182,7 +203,7 @@ class _Sidebar extends StatelessWidget {
               child: _NavButton(
                 item: item,
                 active: item == current,
-                badge: item.path == '/supervisor/problems' && (openReports ?? 0) > 0 ? openReports : null,
+                badge: counts.badgeFor(item.path),
               ),
             ),
           const Spacer(),
@@ -274,7 +295,7 @@ class _NavButton extends StatelessWidget {
               Expanded(child: Text(item.label, style: style, maxLines: 1, overflow: TextOverflow.ellipsis)),
               if (badge != null)
                 Container(
-                  key: const Key('nav-badge'),
+                  key: ValueKey('nav-badge-${item.path}'),
                   constraints: const BoxConstraints(minWidth: AppSpacing.adminNavBadgeSize),
                   height: AppSpacing.adminNavBadgeSize,
                   padding: const EdgeInsets.symmetric(horizontal: 6),

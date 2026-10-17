@@ -231,6 +231,35 @@ void main() {
     });
   });
 
+  group('low stock (GET /reports/low-stock)', () {
+    Future<void> signInSupervisor() =>
+        api.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
+
+    test('items at or below their minimum, lowest first, with qty_to_minimum', () async {
+      await signInSupervisor();
+      var low = await api.getLowStock();
+      expect(low.map((l) => (l.item.name, l.item.quantity, l.qtyToMinimum)), [
+        ('10 ml syringe', 0, 10),
+        ('Adhesive dressing', 9, 1),
+      ]);
+      await api.updateItemQuantity(6, 10); // masks exactly at the minimum (10) count as low
+      await api.updateItemQuantity(2, 30); // dressing refilled: no longer low
+      low = await api.getLowStock();
+      expect(low.map((l) => (l.item.name, l.qtyToMinimum)), [('10 ml syringe', 10), ('Procedure mask', 0)]);
+    });
+
+    test('same quantity: sorted by name', () async {
+      await signInSupervisor();
+      await api.updateItemQuantity(2, 0);
+      expect((await api.getLowStock()).map((l) => l.item.name), ['10 ml syringe', 'Adhesive dressing']);
+    });
+
+    test('supervisors only (403)', () async {
+      await signInNurse();
+      await expectLater(api.getLowStock(), _apiError(403));
+    });
+  });
+
   group('problem reports', () {
     Future<void> signInSupervisor() =>
         api.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
