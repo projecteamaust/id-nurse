@@ -6,10 +6,11 @@ Auth: login returns a JWT (valid 8 hours, configurable). Send it as `Authorizati
 |---|---|---|---|
 | Auth/health | `POST /auth/login`, `GET /me`, `GET /health` | public / logged in | login, current user, server status |
 | Patients | `/patients` (add, read), `GET /patients/{file_number}` | nurse, supervisor | patient data |
-| Items | `/items` | read: everyone; edit: supervisor | items and stock |
+| Items | `GET /items`, `PATCH /items/{id}` | read: everyone; edit: supervisor | items and stock |
+| Users | `GET /users` | supervisor | staff list (used for the nurse filter) |
 | Orders | `POST /orders`, `POST /orders/{id}/approve`, `POST /orders/{id}/cancel`, `GET /orders/{id}`, `GET /orders` | nurse, supervisor | create, approve, cancel, track, list |
 | Problem reports | `POST /orders/{id}/report` (nurse, supervisor), `GET /problem-reports`, `POST /problem-reports/{id}/resolve` (supervisor) | see left | report a PARTIAL/FAILED order, list and resolve reports |
-| Reports | `/reports` (dispense CSV, low stock), `/audit` | supervisor | reports and audit log |
+| Reports | `GET /reports/low-stock`, `GET /reports/dispense.csv`, `GET /audit` | supervisor | low stock, dispense CSV export, audit log |
 | Calibration | `/calibration`, `/calibrate` | supervisor | save poses, move arm, test a pick |
 
 ## Order states
@@ -68,6 +69,15 @@ Optional filters: `?category=Wound care`, `?search=gauze`.
 ```
 - `low_stock` is `quantity <= min_quantity`. Out of stock means `quantity == 0`.
 
+## `PATCH /items/{id}` (supervisor)
+Sets the stock count after a refill or a stock check.
+```json
+{ "quantity": 40 }
+```
+- `quantity` is a whole number from 0 to 999 (otherwise 422). Unknown item -> 404.
+- Returns the item object (same shape as in `GET /items`, with `low_stock` recalculated).
+- Writes `stock_edit` to `audit_log` with the old and the new quantity.
+
 ## `POST /orders` (nurse, supervisor)
 ```json
 { "patient_file_number": "284913", "items": [ { "item_id": 1, "qty": 3 } ] }
@@ -94,6 +104,9 @@ Returns 201 with the order object (status `PENDING`).
 Used by the nurse Home screen ("Recent requests"), "My recent requests", and later the supervisor dispensing log.
 - `?limit=20` (default 20). Newest first.
 - A nurse sees only her own orders. A supervisor sees all orders and can filter with `?nurse_id=` and `?status=`.
+- `nurse_id` is the user's numeric `id` (from `GET /users`), not the `employee_id`.
+- `?from=` and `?to=` (`YYYY-MM-DD`, both optional, both inclusive) filter on `created_at`, using the server's local date.
+  `from` after `to` -> 422.
 ```json
 [ { "id": 17, "status": "DONE", "patient_file_number": "284913", "nurse_name": "Maya Chen",
     "created_at": "2026-10-16T08:45:12+03:00", "item_count": 3, "total_units": 7 } ]
@@ -137,6 +150,51 @@ Report object:
 ### `POST /problem-reports/{id}/resolve` (supervisor)
 - Returns the report object with `status: "resolved"`, `resolved_at` and `resolved_by` filled in.
 - Unknown report -> 404. Already resolved -> 409 `"Report is already resolved"`.
+
+## `GET /users` (supervisor)
+Read-only staff list. The supervisor dashboard uses it for the nurse filter (`?role=nurse`).
+Adding or editing users is not in the API yet.
+```json
+[ { "id": 1, "employee_id": "48216", "name": "Maya Chen", "role": "nurse", "ward": "Ward 4 · Surgical" } ]
+```
+- Optional `?role=nurse` or `?role=supervisor`. Sorted by name.
+- Each entry is the same shape as the `user` object in the login response.
+
+## `GET /reports/low-stock` (supervisor)
+Items that need a refill: every item where `low_stock` is true (`quantity <= min_quantity`).
+```json
+[ { "id": 4, "name": "10 ml syringe", "sku": "IV-002", "category": "IV and injections",
+    "slot_number": 4, "quantity": 0, "min_quantity": 10, "low_stock": true, "qty_to_minimum": 10 } ]
+```
+- The item object plus `qty_to_minimum = min_quantity - quantity` (0 when the item is exactly at its minimum).
+- Sorted by `quantity`, lowest first, then by name.
+
+## `GET /audit` (supervisor)
+The actions in `audit_log`, for the dispensing log. Newest first.
+- Filters: `?from=` and `?to=` (`YYYY-MM-DD`, inclusive, on `timestamp`, same rules as `GET /orders`),
+  `?nurse_id=` (the user `id`: only actions by that user), `?limit=100` (default 100, at most 500).
+```json
+[ { "id": 81, "timestamp": "2026-10-16T08:45:20+03:00",
+    "actor": { "employee_id": "48216", "name": "Maya Chen" },
+    "action": "order_approved", "order_id": 17, "summary": "Approved order #17" } ]
+```
+- `actor` is `null` for actions the system does by itself (the robot's picks).
+- `order_id` is `null` when the action is not about an order (login, stock edit).
+- `summary` is a short English sentence written by the server, so the app shows it as it is.
+- `action` is one of: `login_success`, `login_failed`, `order_created`, `order_approved`, `order_cancelled`,
+  `pick_ok`, `pick_failed`, `order_finished`, `stock_edit`, `pose_saved`, `problem_reported`, `problem_resolved`.
+- `details` (the raw JSON column) is not returned; `summary` is enough for the screen.
+
+## `GET /reports/dispense.csv` (supervisor)
+Export for insurance claims and auditing. Response type `text/csv; charset=utf-8`, file name `dispense-report.csv`.
+- Filters: `?from=`, `?to=` and `?nurse_id=`, same rules as `GET /orders`. Cancelled orders are left out.
+- One row per order line, oldest first, with this header row (fixed column order):
+```csv
+order_id,created_at,completed_at,status,patient_file_number,nurse_employee_id,nurse_name,item_name,slot_number,qty_requested,qty_dispensed
+17,2026-10-16T08:45:12+03:00,2026-10-16T08:46:30+03:00,DONE,284913,48216,Maya Chen,Sterile gauze pads,3,3,3
+```
+- Text that contains a comma or a quote is wrapped in double quotes (standard CSV).
+- `completed_at` is empty while the order is still running.
 
 ## Not in the API yet (later)
 Notify admin, door/collect, retry a failed order, user management, settings.
