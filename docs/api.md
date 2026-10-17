@@ -8,6 +8,7 @@ Auth: login returns a JWT (valid 8 hours, configurable). Send it as `Authorizati
 | Patients | `/patients` (add, read), `GET /patients/{file_number}` | nurse, supervisor | patient data |
 | Items | `/items` | read: everyone; edit: supervisor | items and stock |
 | Orders | `POST /orders`, `POST /orders/{id}/approve`, `POST /orders/{id}/cancel`, `GET /orders/{id}`, `GET /orders` | nurse, supervisor | create, approve, cancel, track, list |
+| Problem reports | `POST /orders/{id}/report` (nurse, supervisor), `GET /problem-reports`, `POST /problem-reports/{id}/resolve` (supervisor) | see left | report a PARTIAL/FAILED order, list and resolve reports |
 | Reports | `/reports` (dispense CSV, low stock), `/audit` | supervisor | reports and audit log |
 | Calibration | `/calibration`, `/calibrate` | supervisor | save poses, move arm, test a pick |
 
@@ -98,8 +99,47 @@ Used by the nurse Home screen ("Recent requests"), "My recent requests", and lat
     "created_at": "2026-10-16T08:45:12+03:00", "item_count": 3, "total_units": 7 } ]
 ```
 
+## Problem reports
+A nurse reports a `PARTIAL` or `FAILED` order so a supervisor can follow it up.
+Reports are stored in `audit_log` (no extra table), and the log is only ever added to:
+- Sending a report writes one entry: `action = "problem_reported"`, `actor` = the user who sent it,
+  `details` = the order id, the note and the missing items. The report `id` is this entry's id.
+- Resolving writes a second entry: `action = "problem_resolved"`, `actor` = the supervisor,
+  `details` = `{"report_id": ...}`.
+- `status` is worked out, not stored: `resolved` if a `problem_resolved` entry exists for the report, otherwise `open`.
+
+Report object:
+```json
+{ "id": 52, "order_id": 17, "status": "open", "note": "Drawer 2 looked jammed",
+  "nurse": { "employee_id": "48216", "name": "Maya Chen" },
+  "missing_items": [ { "item_id": 2, "name": "Adhesive dressing", "slot_number": 2, "qty_missing": 1 } ],
+  "created_at": "2026-10-16T08:47:03+03:00", "resolved_at": null, "resolved_by": null }
+```
+- `nurse` is the user who sent the report.
+- `missing_items` is filled in by the server from the order: every line where `qty_dispensed < qty_requested`,
+  with `qty_missing = qty_requested - qty_dispensed`. The client never sends it.
+- `note` is `null` when none was given. `resolved_by` is `{ "employee_id", "name" }` once resolved.
+
+### `POST /orders/{id}/report` (nurse, supervisor)
+```json
+{ "note": "Drawer 2 looked jammed" }
+```
+- `note` is optional (may be left out, `null` or empty), at most 200 characters (otherwise 422).
+- Allowed only when the order is `PARTIAL` or `FAILED` (otherwise 409).
+- A nurse can report only her own orders (otherwise 403).
+- At most one open report per order: a second one while the first is open -> 409 `"This order already has an open report"`.
+- Returns 201 with the report object (status `open`).
+
+### `GET /problem-reports` (supervisor)
+- `?status=open` (default), `resolved` or `all`. Newest first.
+- Returns a list of report objects.
+
+### `POST /problem-reports/{id}/resolve` (supervisor)
+- Returns the report object with `status: "resolved"`, `resolved_at` and `resolved_by` filled in.
+- Unknown report -> 404. Already resolved -> 409 `"Report is already resolved"`.
+
 ## Not in the API yet (later)
-Report a problem, notify admin, door/collect, retry a failed order, user management, settings.
+Notify admin, door/collect, retry a failed order, user management, settings.
 
 ## Other
 - The frontend polls `GET /orders/{id}` every 1 to 2 seconds until the state is final.
