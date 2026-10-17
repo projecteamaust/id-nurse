@@ -110,4 +110,20 @@ class AppSpacing {
   static const double modalMaxWidth = 540;
   static const double modalPadding = 26;
   static const double modalHeadGap = 18; // .modal-head margin-bottom
+  // Supervisor dashboard (.admin-shell and friends)
+  static const double adminSidebarWidth = 250; // .admin-sidebar
+  static const double adminSidebarWidthNarrow = 220; // @media (max-width: 1250px)
+  static const double adminSidebarBreakpoint = 1250;
+  static const double adminSidebarPaddingX = 16;
+  static const double adminSidebarPaddingY = 24;
+  static const double adminNavItemHeight = 50; // .admin-sidebar nav button
+  static const double adminNavItemPaddingX = 12;
+  static const double adminNavIconWidth = 30;
+  static const double adminNavGap = 5;
+  static const double adminNavBadgeSize = 22; // .admin-sidebar nav b
+  static const double adminSignOutHeight = 42; // .sidebar-foot > button
+  static const double adminHeaderHeight = 92; // .admin-header
+  static const double adminHeaderPaddingX = 32;
+  static const double adminContentPaddingX = 32; // .admin-content
+  static const double adminContentPaddingY = 24;
 }

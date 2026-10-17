@@ -8,6 +8,14 @@ import '../theme/app_scale.dart';
 import 'scaled_page.dart';
 import 'top_bar.dart';
 
+/// Signs the user out everywhere: forgets the token, the request being built and the user.
+/// The router then sends us to /login. Used by the top bar and the supervisor sidebar.
+void signOutUser(BuildContext context) {
+  context.read<ApiService>().signOut();
+  context.read<OrderDraft>().clear(); // forget the patient and the request
+  context.read<AuthState>().signOut();
+}
+
 /// Layout shared by every signed-in screen (prototype: NurseShell + .main-card):
 /// top bar with the user and "Sign out", the nurse step tracker, then a [ScaledPage] card
 /// that fills the rest of the window. The supervisor dashboard passes no [step].
@@ -37,14 +45,8 @@ class NursePage extends StatelessWidget {
     final user = context.watch<AuthState>().user;
     if (user == null) return const SizedBox.shrink(); // the router sends us back to /login
 
-    void signOut() {
-      context.read<ApiService>().signOut();
-      context.read<OrderDraft>().clear(); // forget the patient and the request
-      context.read<AuthState>().signOut(); // the router then sends us to /login
-    }
-
     return ScaledPage(
-      topBar: TopBar(user: user, onSignOut: signOut),
+      topBar: TopBar(user: user, onSignOut: () => signOutUser(context)),
       step: step,
       withCard: withCard,
       spacingReferenceHeight: spacingReferenceHeight,

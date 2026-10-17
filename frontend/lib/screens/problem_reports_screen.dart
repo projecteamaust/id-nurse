@@ -10,24 +10,21 @@ import '../theme/app_spacing.dart';
 import '../theme/app_text.dart';
 import '../widgets/app_alert.dart';
 import '../widgets/app_button.dart';
-import '../widgets/nurse_page.dart';
+import '../widgets/admin_shell.dart';
 import '../widgets/status_chip.dart';
 
-/// Supervisor dashboard, minimal for now: only "Problem reports" (open reports from
-/// nurses about PARTIAL / FAILED orders) with "Mark resolved". Stock, low stock, the
-/// dispensing log and report export are added here later (screen 6).
+/// Supervisor dashboard page "Problem reports": open reports from nurses about PARTIAL /
+/// FAILED orders, with "Mark resolved". Shown inside [AdminShell]; keeps the sidebar badge
+/// ([AdminCounts.openReports]) in step with the list.
 /// Loads once when it opens; "Refresh" loads again (no polling).
-class SupervisorScreen extends StatefulWidget {
-  const SupervisorScreen({super.key});
+class ProblemReportsScreen extends StatefulWidget {
+  const ProblemReportsScreen({super.key});
 
   @override
-  State<SupervisorScreen> createState() => _SupervisorScreenState();
+  State<ProblemReportsScreen> createState() => _ProblemReportsScreenState();
 }
 
-class _SupervisorScreenState extends State<SupervisorScreen> {
-  /// Tighter spacing (like the Prepare result), so 5 reports fit at 1280x720.
-  static const _spacingReferenceHeight = 1000.0;
-
+class _ProblemReportsScreenState extends State<ProblemReportsScreen> {
   List<ProblemReport>? _reports;
   bool _loading = false;
   String? _error;
@@ -46,7 +43,9 @@ class _SupervisorScreenState extends State<SupervisorScreen> {
     });
     try {
       final reports = await context.read<ApiService>().listProblemReports();
-      if (mounted) setState(() => _reports = reports);
+      if (!mounted) return;
+      setState(() => _reports = reports);
+      context.read<AdminCounts>().openReports = reports.length;
     } catch (_) {
       if (mounted) setState(() => _error = 'Could not load the problem reports. Try again.');
     } finally {
@@ -61,12 +60,11 @@ class _SupervisorScreenState extends State<SupervisorScreen> {
     });
     try {
       await context.read<ApiService>().resolveProblemReport(report.id);
-      if (mounted) setState(() => _reports?.removeWhere((r) => r.id == report.id));
+      if (mounted) _removeReport(report);
     } on ApiException catch (e) {
       if (!mounted) return;
       if (e.statusCode == 409) {
-        // Someone else already resolved it: it is no longer open.
-        setState(() => _reports?.removeWhere((r) => r.id == report.id));
+        _removeReport(report); // someone else already resolved it: it is no longer open
       } else {
         setState(() => _error = 'Could not mark report for order #${report.orderId} as resolved. Try again.');
       }
@@ -77,33 +75,27 @@ class _SupervisorScreenState extends State<SupervisorScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return NursePage(
-      spacingReferenceHeight: _spacingReferenceHeight,
-      builder: (context, scale) => _buildContent(scale),
-    );
+  void _removeReport(ProblemReport report) {
+    setState(() => _reports?.removeWhere((r) => r.id == report.id));
+    context.read<AdminCounts>().openReports = _reports?.length;
   }
 
-  Widget _buildContent(AppScale scale) {
+  @override
+  Widget build(BuildContext context) {
+    final scale = context.watch<AppScale>();
     final reports = _reports;
+    return AdminCard(child: _buildContent(reports, scale));
+  }
+
+  Widget _buildContent(List<ProblemReport>? reports, AppScale scale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // .section-head: what this list is, the open count and "Refresh".
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('SUPERVISOR', style: scale.text(AppText.eyebrow)),
-                  SizedBox(height: scale.size(AppSpacing.gapXs)),
-                  Text('Problem reports', style: scale.h1),
-                  SizedBox(height: scale.size(AppSpacing.gapS)),
-                  Text('Reports from nurses about orders that were not fully dispensed.', style: scale.bodyMuted),
-                ],
-              ),
+              child: Text('Reports from nurses about orders that were not fully dispensed.', style: scale.bodyMuted),
             ),
             if (reports != null) ...[
               StatusChip(
@@ -122,7 +114,7 @@ class _SupervisorScreenState extends State<SupervisorScreen> {
             ),
           ],
         ),
-        SizedBox(height: scale.size(AppSpacing.gapXxl)),
+        SizedBox(height: scale.size(AppSpacing.gapXl)),
         if (_error != null)
           AppAlert(
             message: _error!,

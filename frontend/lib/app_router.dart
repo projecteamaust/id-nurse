@@ -1,16 +1,18 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import 'screens/admin_placeholder_screen.dart';
 import 'screens/collect_screen.dart';
 import 'screens/complete_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/patient_screen.dart';
 import 'screens/prepare_screen.dart';
+import 'screens/problem_reports_screen.dart';
 import 'screens/review_screen.dart';
 import 'screens/supervisor_login_screen.dart';
-import 'screens/supervisor_screen.dart';
 import 'screens/supplies_screen.dart';
 import 'services/auth_state.dart';
+import 'widgets/admin_shell.dart';
 
 /// All screens and their URLs. Signed-out users always land on /login
 /// (or stay on /supervisor/login).
@@ -22,13 +24,22 @@ GoRouter buildRouter(AuthState auth) {
       final onLogin = state.matchedLocation == '/login' || state.matchedLocation == '/supervisor/login';
       if (!auth.isSignedIn && !onLogin) return '/login';
       // The dashboard is for supervisors only; a nurse goes back to her own start.
-      if (state.matchedLocation == '/supervisor' && auth.user?.isSupervisor != true) return '/patient';
+      if (_isDashboard(state.matchedLocation) && auth.user?.isSupervisor != true) return '/patient';
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/supervisor/login', builder: (context, state) => const SupervisorLoginScreen()),
-      GoRoute(path: '/supervisor', builder: (context, state) => const SupervisorScreen()),
+      GoRoute(path: '/supervisor', redirect: (context, state) => adminNavItems.first.path),
+      // The dashboard pages share one AdminShell, so the sidebar stays while the page changes.
+      ShellRoute(
+        builder: (context, state, child) => AdminShell(location: state.matchedLocation, child: child),
+        routes: [
+          GoRoute(path: '/supervisor/problems', builder: (context, state) => const ProblemReportsScreen()),
+          for (final path in ['/supervisor/stock', '/supervisor/low-stock', '/supervisor/log', '/supervisor/reports'])
+            GoRoute(path: path, builder: (context, state) => const AdminPlaceholderScreen()),
+        ],
+      ),
       GoRoute(path: '/patient', builder: (context, state) => const PatientScreen()),
       GoRoute(path: '/supplies', builder: (context, state) => const SuppliesScreen()),
       GoRoute(path: '/review', builder: (context, state) => const ReviewScreen()),
@@ -50,6 +61,10 @@ GoRouter buildRouter(AuthState auth) {
     ],
   );
 }
+
+/// Any supervisor dashboard page (but not its public sign in page).
+bool _isDashboard(String location) =>
+    location == '/supervisor' || (location.startsWith('/supervisor/') && location != '/supervisor/login');
 
 /// The order id in the URL, or null if it is not a number.
 int? _orderId(GoRouterState state) => int.tryParse(state.pathParameters['orderId'] ?? '');

@@ -200,7 +200,7 @@ void main() {
       await sendReport(tester, note: 'Drawer 2 looked jammed');
 
       await signInSupervisor(tester);
-      expect(find.text('Problem reports'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('admin-title'))).data, 'Problem reports');
       expect(find.text('1 open'), findsOneWidget);
       expect(find.textContaining('Order #1 · Maya Chen · '), findsOneWidget);
       expect(find.text('Not dispensed: Adhesive dressing ×1'), findsOneWidget);
@@ -324,7 +324,10 @@ void main() {
         await tester.pumpAndSettle();
         await signInSupervisor(tester);
         expect(find.text('5 open'), findsOneWidget);
-        expectInCard(tester, size, find.byKey(const Key('report-list')));
+        expect(find.byType(SingleChildScrollView), findsNothing);
+        final card = tester.getRect(find.byKey(const Key('admin-card')));
+        expect(card.bottom, lessThanOrEqualTo(size.height));
+        expect(tester.getRect(find.byKey(const Key('report-list'))).bottom, lessThanOrEqualTo(card.bottom));
         expectListFits(tester, const Key('report-list'));
       });
     }

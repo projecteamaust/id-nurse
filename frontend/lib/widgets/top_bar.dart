@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text.dart';
 import 'app_button.dart';
+import 'app_logo.dart';
 
 /// The 80 px header on every screen (.topbar).
 /// Signed in: name, ward and "Sign out". Signed out: optional "Admin sign in".
@@ -29,7 +30,7 @@ class TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const _Logo(),
+          const AppLogo(),
           const Spacer(),
           if (user != null) ...[
             Column(
@@ -50,35 +51,6 @@ class TopBar extends StatelessWidget {
             AppButton(label: 'Admin sign in', variant: AppButtonVariant.ghost, onPressed: onAdmin),
         ],
       ),
-    );
-  }
-}
-
-/// Teal rounded square with a white cross, plus "ID Nurse" (.brand / .logo-mark).
-class _Logo extends StatelessWidget {
-  const _Logo();
-
-  @override
-  Widget build(BuildContext context) {
-    Widget bar(double w, double h) => Container(
-          width: w,
-          height: h,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2)),
-        );
-    return Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
-          ),
-          child: Stack(alignment: Alignment.center, children: [bar(22, 5), bar(5, 22)]),
-        ),
-        const SizedBox(width: AppSpacing.gapM),
-        const Text('ID Nurse', style: AppText.brand),
-      ],
     );
   }
 }

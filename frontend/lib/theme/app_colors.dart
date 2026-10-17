@@ -42,6 +42,10 @@ class AppColors {
   static const modalBackdrop = Color(0x730A2320); // .modal-backdrop rgba(10,35,32,.45)
   static const adminSidebar = Color(0xFF102E2B);
   static const adminSidebarText = Color(0xFFB9CDCA);
+  static const adminSidebarMuted = Color(0xFF95AAA7); // .sidebar-foot span
+  static const adminSidebarDivider = Color(0xFF33514E); // .sidebar-foot border-top
+  static const adminSidebarButtonText = Color(0xFFC7D7D4); // .sidebar-foot > button
+  static const adminSidebarButtonBorder = Color(0xFF49635F);
 
   // Alert boxes (.alert-*)
   static const alertWarningText = Color(0xFF713F12);
