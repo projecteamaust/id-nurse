@@ -126,4 +126,6 @@ class AppSpacing {
   static const double adminHeaderPaddingX = 32;
   static const double adminContentPaddingX = 32; // .admin-content
   static const double adminContentPaddingY = 24;
+  static const double tableCellPaddingX = 16; // th, td
+  static const double tableCellPaddingY = 10; // prototype 14; tighter so tables fit at 1280x720
 }

@@ -206,6 +206,31 @@ void main() {
     });
   });
 
+  group('stock edit (PATCH /items/{id})', () {
+    Future<void> signInSupervisor() =>
+        api.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
+
+    test('supervisor sets the quantity; low_stock is recalculated; GET /items shows it', () async {
+      await signInSupervisor();
+      final item = await api.updateItemQuantity(1, 5); // gauze: minimum 10
+      expect(item.quantity, 5);
+      expect(item.lowStock, isTrue);
+      expect((await api.getItems(search: 'gauze')).single.quantity, 5);
+      expect((await api.updateItemQuantity(1, 11)).lowStock, isFalse);
+      expect((await api.updateItemQuantity(4, 0)).outOfStock, isTrue);
+    });
+
+    test('0 to 999 only (422); unknown item 404; nurse 403', () async {
+      await signInSupervisor();
+      await expectLater(api.updateItemQuantity(1, -1), _apiError(422));
+      await expectLater(api.updateItemQuantity(1, 1000), _apiError(422));
+      expect((await api.updateItemQuantity(1, 999)).quantity, 999);
+      await expectLater(api.updateItemQuantity(99, 5), _apiError(404));
+      await signInNurse();
+      await expectLater(api.updateItemQuantity(1, 5), _apiError(403));
+    });
+  });
+
   group('problem reports', () {
     Future<void> signInSupervisor() =>
         api.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);

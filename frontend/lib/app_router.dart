@@ -10,6 +10,7 @@ import 'screens/prepare_screen.dart';
 import 'screens/problem_reports_screen.dart';
 import 'screens/review_screen.dart';
 import 'screens/supervisor_login_screen.dart';
+import 'screens/stock_screen.dart';
 import 'screens/supplies_screen.dart';
 import 'services/auth_state.dart';
 import 'widgets/admin_shell.dart';
@@ -36,7 +37,8 @@ GoRouter buildRouter(AuthState auth) {
         builder: (context, state, child) => AdminShell(location: state.matchedLocation, child: child),
         routes: [
           GoRoute(path: '/supervisor/problems', builder: (context, state) => const ProblemReportsScreen()),
-          for (final path in ['/supervisor/stock', '/supervisor/low-stock', '/supervisor/log', '/supervisor/reports'])
+          GoRoute(path: '/supervisor/stock', builder: (context, state) => const StockScreen()),
+          for (final path in ['/supervisor/low-stock', '/supervisor/log', '/supervisor/reports'])
             GoRoute(path: path, builder: (context, state) => const AdminPlaceholderScreen()),
         ],
       ),

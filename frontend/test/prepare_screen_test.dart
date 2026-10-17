@@ -48,6 +48,8 @@ class _NoDemoApi implements ApiService {
   Future<List<Item>> getItems({String? category, String? search}) =>
       inner.getItems(category: category, search: search);
   @override
+  Future<Item> updateItemQuantity(int itemId, int quantity) => inner.updateItemQuantity(itemId, quantity);
+  @override
   Future<Order> createOrder(String patientFileNumber, List<OrderLineRequest> items) =>
       inner.createOrder(patientFileNumber, items);
   @override

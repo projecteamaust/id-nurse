@@ -74,8 +74,8 @@ class MockApiService implements ApiService, DemoControls {
   final Map<int, Timer> _robotTimers = {};
   int _nextOrderId = 1;
 
-  /// audit_log rows. The mock only writes problem reports here (the other audited
-  /// actions matter only in the real backend).
+  /// audit_log rows. The mock writes problem reports and stock edits here (the dispensing
+  /// log task adds the other actions).
   final List<Map<String, dynamic>> _auditLog = [];
   int _nextAuditId = 1;
   Map<String, dynamic>? _currentUser;
@@ -130,6 +130,24 @@ class MockApiService implements ApiService, DemoControls {
         .where((i) => query.isEmpty || (i['name'] as String).toLowerCase().contains(query))
         .map((i) => Item.fromJson(_itemJson(i)))
         .toList();
+  }
+
+  /// Highest stock count PATCH /items/{id} accepts (docs/api.md).
+  static const maxItemQuantity = 999;
+
+  @override
+  Future<Item> updateItemQuantity(int itemId, int quantity) async {
+    await _delay();
+    final user = _requireSupervisor();
+    if (quantity < 0 || quantity > maxItemQuantity) {
+      throw const ApiException(422, 'Quantity must be between 0 and $maxItemQuantity');
+    }
+    final item = _items.where((i) => i['id'] == itemId).firstOrNull;
+    if (item == null) throw const ApiException(404, 'Item not found');
+    final old = item['quantity'] as int;
+    item['quantity'] = quantity;
+    _writeAudit(user, 'stock_edit', {'item_id': itemId, 'old_quantity': old, 'new_quantity': quantity});
+    return Item.fromJson(_itemJson(item));
   }
 
   // ---------------------------------------------------------------- orders

@@ -7,9 +7,9 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text.dart';
 import 'app_alert.dart';
 import 'app_button.dart';
+import 'app_dialog.dart';
 import 'order_line_row.dart';
 
 /// Warning that names what was not dispensed, with a "Report problem" button under it
@@ -132,65 +132,35 @@ class _ReportProblemDialogState extends State<ReportProblemDialog> {
   @override
   Widget build(BuildContext context) {
     final scale = widget.scale;
-    return Dialog(
-      backgroundColor: AppColors.card,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusCard)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppSpacing.modalMaxWidth),
-        child: Padding(
-          padding: EdgeInsets.all(scale.size(AppSpacing.modalPadding)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Report a problem', style: scale.text(AppText.h2)),
-              SizedBox(height: scale.size(AppSpacing.gapS)),
-              Text(
-                'Order #${widget.order.id} · Not dispensed: ${notDispensedText(widget.order.items)}',
-                style: scale.bodyMuted,
-              ),
-              SizedBox(height: scale.size(AppSpacing.modalHeadGap)),
-              TextField(
-                key: const Key('report-note'),
-                controller: _note,
-                enabled: !_sending,
-                maxLength: AppConfig.maxReportNoteLength,
-                maxLines: 2,
-                style: scale.body,
-                decoration: const InputDecoration(hintText: 'What happened? (optional)'),
-              ),
-              if (_error != null)
-                AppAlert(
-                  message: _error!,
-                  tone: AlertTone.error,
-                  scale: scale,
-                  margin: EdgeInsets.only(top: scale.size(AppSpacing.gapS)),
-                ),
-              SizedBox(height: scale.size(AppSpacing.gapL)),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  AppButton(
-                    label: 'Cancel',
-                    variant: AppButtonVariant.secondary,
-                    onPressed: _sending ? null : () => Navigator.of(context).pop(false),
-                    height: scale.buttonHeight,
-                    textStyle: scale.button,
-                  ),
-                  SizedBox(width: scale.size(AppSpacing.gapM)),
-                  AppButton(
-                    label: _sending ? 'Sending…' : 'Send',
-                    onPressed: _sending ? null : _send,
-                    height: scale.buttonHeight,
-                    textStyle: scale.button,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+    return AppDialog(
+      title: 'Report a problem',
+      subtitle: 'Order #${widget.order.id} · Not dispensed: ${notDispensedText(widget.order.items)}',
+      content: TextField(
+        key: const Key('report-note'),
+        controller: _note,
+        enabled: !_sending,
+        maxLength: AppConfig.maxReportNoteLength,
+        maxLines: 2,
+        style: scale.body,
+        decoration: const InputDecoration(hintText: 'What happened? (optional)'),
       ),
+      error: _error,
+      actions: [
+        AppButton(
+          label: 'Cancel',
+          variant: AppButtonVariant.secondary,
+          onPressed: _sending ? null : () => Navigator.of(context).pop(false),
+          height: scale.buttonHeight,
+          textStyle: scale.button,
+        ),
+        AppButton(
+          label: _sending ? 'Sending…' : 'Send',
+          onPressed: _sending ? null : _send,
+          height: scale.buttonHeight,
+          textStyle: scale.button,
+        ),
+      ],
+      scale: scale,
     );
   }
 }

@@ -73,7 +73,10 @@ void main() {
       expect(title(tester), item.label);
       expect(navColor(tester, item.path), AppColors.primary);
       expect(navColor(tester, '/supervisor/problems'), Colors.transparent);
-      expect(find.text('This page is added in the next step.'), findsOneWidget);
+      expect(find.byKey(const Key('admin-card')), findsOneWidget);
+      // Pages not built yet still show the placeholder.
+      const built = {'/supervisor/stock'};
+      expect(find.text('This page is added in the next step.'), built.contains(item.path) ? findsNothing : findsOneWidget);
     }
 
     await tester.tap(find.byKey(const ValueKey('nav-/supervisor/problems')));

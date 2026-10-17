@@ -56,6 +56,9 @@ abstract class ApiService {
   /// GET /items with optional ?category= and ?search=
   Future<List<Item>> getItems({String? category, String? search});
 
+  /// PATCH /items/{id} with {quantity} (supervisor) -> the updated item
+  Future<Item> updateItemQuantity(int itemId, int quantity);
+
   /// POST /orders -> order with status PENDING
   Future<Order> createOrder(String patientFileNumber, List<OrderLineRequest> items);
 
