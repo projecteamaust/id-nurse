@@ -54,19 +54,8 @@ class AppSpacing {
   // Screen width below which we use compact paddings
   static const double compactBreakpoint = 720;
 
-  // Short screens (e.g. 1280x720 laptop, 1280x800 landscape tablet).
-  // When the space below the top bar is less than this, we use the smaller sizes below
-  // so the login keypad and its button fit without scrolling.
-  static const double compactHeightBreakpoint = 800;
-  static const double pagePaddingYShort = 8;
-  static const double authCardPaddingYShort = 16;
-  static const double tabHeightShort = 48;
-  static const double keypadButtonHeightShort = 48; // Flutter's minimum touch target size
-  static const double keypadGapShort = 6;
-
-  // Keypad in "fill" mode: buttons share the free height, within these limits
-  static const double keypadButtonMinHeight = 48; // Flutter's minimum touch target size
+  // Keypad: buttons share the free height, up to this (minimum: AppScale.minTouchHeight)
   static const double keypadButtonMaxHeight = 96;
   static const double fieldPaddingY = 14;
-  static const double fieldPaddingYShort = 8;
+  static const double scanPanelPadding = 28; // .scan-panel
 }

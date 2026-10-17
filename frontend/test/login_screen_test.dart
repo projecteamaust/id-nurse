@@ -123,45 +123,64 @@ void main() {
     expect(find.text('Which patient?'), findsOneWidget);
   });
 
-  group('Enter ID tab fits on short screens without scrolling', () {
-    /// How far the login page could scroll (0 = everything fits).
-    double pageScrollExtent(WidgetTester tester) => tester
-        .state<ScrollableState>(find
-            .descendant(of: find.byType(SingleChildScrollView), matching: find.byType(Scrollable))
-            .first)
-        .position
-        .maxScrollExtent;
+  group('fills the window without scrolling', () {
+    const sizes = [Size(1280, 720), Size(1366, 768), Size(1280, 800), Size(1920, 1080)];
 
-    for (final size in const [Size(1280, 720), Size(1280, 800)]) {
-      for (final withError in [false, true]) {
-        final label = '${size.width.toInt()}x${size.height.toInt()}${withError ? ' with error' : ''}';
-        testWidgets(label, (tester) async {
-          await openApp(tester, size: size);
-          await openEnterIdTab(tester);
-          if (withError) {
-            await tapKeys(tester, '9999');
-            await tester.tap(find.text('Find my ID'));
-            await tester.pumpAndSettle();
-            expect(find.textContaining('No staff ID found'), findsOneWidget);
-          }
-          final button = tester.getRect(find.widgetWithText(FilledButton, 'Find my ID'));
-          expect(button.bottom, lessThanOrEqualTo(size.height));
-          expect(pageScrollExtent(tester), 0);
-        });
-      }
+    /// No page scroll view, and the card reaches down to the bottom of the window
+    /// (only the page padding, at most 28 x 1.25 = 35 px, is left below it).
+    void expectFillsWindow(WidgetTester tester, Size size) {
+      expect(find.byType(SingleChildScrollView), findsNothing);
+      final card = tester.getRect(find.byKey(const Key('page-card')));
+      expect(card.bottom, greaterThanOrEqualTo(size.height - 36));
+      expect(card.bottom, lessThanOrEqualTo(size.height));
     }
 
-    testWidgets('tall screens keep the normal 64 px keypad', (tester) async {
-      await openApp(tester, size: const Size(1920, 1080));
-      await openEnterIdTab(tester);
-      expect(tester.getSize(find.widgetWithText(OutlinedButton, '5')).height, 64);
-    });
+    for (final size in sizes) {
+      final label = '${size.width.toInt()}x${size.height.toInt()}';
 
-    testWidgets('short screens use the smaller keypad', (tester) async {
-      await openApp(tester, size: const Size(1280, 720));
-      await openEnterIdTab(tester);
-      expect(tester.getSize(find.widgetWithText(OutlinedButton, '5')).height, 48);
+      testWidgets('$label Enter ID tab with error', (tester) async {
+        await openApp(tester, size: size);
+        await openEnterIdTab(tester);
+        await tapKeys(tester, '9999');
+        await tester.tap(find.text('Find my ID'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('No staff ID found'), findsOneWidget);
+        expectFillsWindow(tester, size);
+        final button = tester.getRect(find.widgetWithText(FilledButton, 'Find my ID'));
+        expect(button.bottom, lessThanOrEqualTo(size.height));
+      });
+
+      testWidgets('$label Scan card tab', (tester) async {
+        await openApp(tester, size: size);
+        expectFillsWindow(tester, size);
+        final button = tester.getRect(find.widgetWithText(FilledButton, 'Simulate card scan'));
+        expect(button.bottom, lessThanOrEqualTo(size.height));
+      });
+    }
+
+    testWidgets('keypad and heading are bigger on a tall window than on a short one', (tester) async {
+      Future<(double, double)> measure(Size size) async {
+        await openApp(tester, size: size);
+        await openEnterIdTab(tester);
+        return (
+          tester.getSize(find.widgetWithText(OutlinedButton, '5')).height,
+          tester.getSize(find.text('Identify yourself')).height,
+        );
+      }
+
+      final (shortKey, shortHeading) = await measure(const Size(1280, 720));
+      final (tallKey, tallHeading) = await measure(const Size(1920, 1080));
+      expect(shortKey, greaterThanOrEqualTo(48)); // touch-size minimum
+      expect(tallKey, greaterThan(shortKey));
+      expect(tallKey, lessThanOrEqualTo(96)); // upper limit
+      expect(tallHeading, greaterThan(shortHeading));
     });
+  });
+
+  testWidgets('very small window scrolls instead of overflowing', (tester) async {
+    await openApp(tester, size: const Size(1024, 600));
+    await openEnterIdTab(tester);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
   });
 
   testWidgets('demo "Simulate card scan" button signs in the demo nurse', (tester) async {

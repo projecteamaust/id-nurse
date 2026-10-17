@@ -130,7 +130,7 @@ void main() {
         // No page scroll view, and the card reaches down to the bottom of the window
         // (only the page padding, at most 28 x 1.25 = 35 px, is left below it).
         expect(find.byType(SingleChildScrollView), findsNothing);
-        final card = tester.getRect(find.byKey(const Key('nurse-page-card')));
+        final card = tester.getRect(find.byKey(const Key('page-card')));
         expect(card.bottom, greaterThanOrEqualTo(size.height - 36));
         expect(card.bottom, lessThanOrEqualTo(size.height));
 

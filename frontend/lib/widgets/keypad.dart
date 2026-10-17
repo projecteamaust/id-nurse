@@ -1,22 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text.dart';
 import 'app_button.dart';
 
-/// Number keypad: 1-9, Clear, 0, Back (.keypad). 3 columns, 64 px buttons.
+/// Number keypad: 1-9, Clear, 0, Back (.keypad). 3 columns, 4 rows.
 ///
-/// With [fill] the buttons share the height the keypad is given (between
-/// [AppSpacing.keypadButtonMinHeight] and [AppSpacing.keypadButtonMaxHeight])
-/// instead of using [buttonHeight].
+/// The buttons share the height the keypad is given, between [AppScale.minTouchHeight]
+/// and [AppSpacing.keypadButtonMaxHeight] (the prototype uses 64 px).
 class Keypad extends StatelessWidget {
   final ValueChanged<String> onDigit;
   final VoidCallback onClear;
   final VoidCallback onBack;
   final bool enabled;
-  final double buttonHeight;
   final double gap;
-  final bool fill;
   final TextStyle textStyle;
 
   const Keypad({
@@ -25,19 +23,16 @@ class Keypad extends StatelessWidget {
     required this.onClear,
     required this.onBack,
     this.enabled = true,
-    this.buttonHeight = AppSpacing.keypadButtonHeight,
     this.gap = AppSpacing.keypadGap,
-    this.fill = false,
     this.textStyle = AppText.keypadButton,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (!fill) return _buildKeys(buttonHeight);
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = ((constraints.maxHeight - 3 * gap) / 4)
-            .clamp(AppSpacing.keypadButtonMinHeight, AppSpacing.keypadButtonMaxHeight);
+            .clamp(AppScale.minTouchHeight, AppSpacing.keypadButtonMaxHeight);
         return _buildKeys(height);
       },
     );

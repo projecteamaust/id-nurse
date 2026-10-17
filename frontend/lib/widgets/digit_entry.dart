@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -12,10 +14,8 @@ import 'keypad.dart';
 /// Used for the staff ID (login) and the patient file number.
 /// The number can be typed on a keyboard or with the on-screen keypad.
 ///
-/// Two ways to size it:
-/// - give a [scale]: it fills the height it is given (the keypad takes the free space)
-///   and uses scaled text and gaps. It must then have a bounded height.
-/// - no [scale] (login for now): prototype sizes, with [dense] for short screens.
+/// It fills the height it is given (the keypad takes the free space, see [Keypad]) and
+/// uses text and gaps from [scale], so it must be placed where its height is bounded.
 class DigitEntry extends StatelessWidget {
   final TextEditingController controller;
   final String label; // text above the field
@@ -25,8 +25,7 @@ class DigitEntry extends StatelessWidget {
   final VoidCallback onSubmit;
   final bool hasError; // red border when the last attempt failed
   final bool busy; // disables everything while a request runs
-  final bool dense; // smaller field, keypad and gaps for short screens
-  final AppScale? scale; // fill the height and scale with it
+  final AppScale scale;
 
   const DigitEntry({
     super.key,
@@ -38,8 +37,7 @@ class DigitEntry extends StatelessWidget {
     required this.onSubmit,
     this.hasError = false,
     this.busy = false,
-    this.dense = false,
-    this.scale,
+    required this.scale,
   });
 
   void _set(String value) {
@@ -51,18 +49,11 @@ class DigitEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = scale;
-    final fill = s != null;
-    final gap = s?.size(AppSpacing.gapL) ?? (dense ? AppSpacing.keypadGap : AppSpacing.gapL);
-    final labelGap = s?.size(AppSpacing.gapS) ?? (dense ? AppSpacing.gapXs : AppSpacing.gapS);
-    final fieldPaddingY = s?.size(AppSpacing.fieldPaddingY) ??
-        (dense ? AppSpacing.fieldPaddingYShort : AppSpacing.fieldPaddingY);
+    final gap = scale.size(AppSpacing.gapL);
     final keypad = Keypad(
       enabled: !busy,
-      fill: fill,
-      buttonHeight: dense ? AppSpacing.keypadButtonHeightShort : AppSpacing.keypadButtonHeight,
-      gap: s?.size(AppSpacing.keypadGap) ?? (dense ? AppSpacing.keypadGapShort : AppSpacing.keypadGap),
-      textStyle: s?.text(AppText.keypadButton) ?? AppText.keypadButton,
+      gap: scale.size(AppSpacing.keypadGap),
+      textStyle: scale.text(AppText.keypadButton),
       onDigit: (d) {
         if (controller.text.length < maxLength) _set(controller.text + d);
       },
@@ -74,25 +65,28 @@ class DigitEntry extends StatelessWidget {
     );
     return Center(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: s?.size(AppSpacing.digitEntryMaxWidth) ?? AppSpacing.digitEntryMaxWidth),
+        // Grows on tall windows, but never narrower than the prototype's 430 px.
+        constraints: BoxConstraints(
+          maxWidth: math.max(AppSpacing.digitEntryMaxWidth, scale.size(AppSpacing.digitEntryMaxWidth)),
+        ),
         child: ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,
           builder: (context, value, _) {
             final canSubmit = !busy && value.text.length >= minLength;
-            // In fill mode the column only takes the height it needs (the keypad grows
-            // up to its maximum button height) and Center puts it in the middle.
+            // The column only takes the height it needs (the keypad grows up to its
+            // maximum button height) and Center puts it in the middle.
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(label, style: s?.label ?? AppText.label),
-                SizedBox(height: labelGap),
+                Text(label, style: scale.label),
+                SizedBox(height: scale.size(AppSpacing.gapS)),
                 TextField(
                   key: const Key('digit-entry-field'),
                   controller: controller,
                   enabled: !busy,
                   textAlign: TextAlign.center,
-                  style: s?.text(AppText.digitInput) ?? AppText.digitInput,
+                  style: scale.text(AppText.digitInput),
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
@@ -101,7 +95,7 @@ class DigitEntry extends StatelessWidget {
                   onSubmitted: (_) => canSubmit ? onSubmit() : null,
                   decoration: InputDecoration(
                     hintText: '_ _ _ _ _ _',
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: fieldPaddingY),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: scale.size(AppSpacing.fieldPaddingY)),
                     enabledBorder: hasError
                         ? OutlineInputBorder(
                             borderRadius: BorderRadius.circular(AppSpacing.radiusButton),
@@ -111,14 +105,14 @@ class DigitEntry extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: gap),
-                if (fill) Flexible(child: keypad) else keypad,
+                Flexible(child: keypad),
                 SizedBox(height: gap),
                 AppButton(
                   label: buttonLabel,
                   onPressed: canSubmit ? onSubmit : null,
                   expand: true,
-                  height: s?.buttonHeight ?? AppSpacing.buttonHeight,
-                  textStyle: s?.button,
+                  height: scale.buttonHeight,
+                  textStyle: scale.button,
                 ),
               ],
             );

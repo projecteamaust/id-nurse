@@ -9,13 +9,14 @@ import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import '../services/scan_source.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text.dart';
 import '../widgets/app_alert.dart';
 import '../widgets/app_button.dart';
 import '../widgets/dashed_border.dart';
 import '../widgets/digit_entry.dart';
 import '../widgets/id_card_art.dart';
+import '../widgets/scaled_page.dart';
 import '../widgets/top_bar.dart';
 
 enum _LoginTab { scan, enterId }
@@ -102,100 +103,74 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  /// Login stacks heading, tabs, error and keypad in one column, more than the nurse
+  /// screens, so its spacing shrinks sooner: it is the prototype size only at about
+  /// 1130 px window height (1000 + 80 + 48) and 0.6x at 1280x720, which is what is needed
+  /// there to fit the Enter ID tab with an error. Text size is not affected (see AppScale).
+  static const _spacingReferenceHeight = 1000.0;
+
+  /// Below a 1280x720 window (720 - 80) the page scrolls instead of squeezing.
+  static const _minFitHeight = 640.0;
+
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint;
-    return Scaffold(
-      body: Column(
-        children: [
-          TopBar(onAdmin: _showAdminNotReady),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Short window (e.g. 1280x720, 1280x800): use smaller paddings and keypad
-                // so everything fits without scrolling. The scroll view stays as a safety net.
-                final short = constraints.maxHeight < AppSpacing.compactHeightBreakpoint;
-                final pagePaddingY = short ? AppSpacing.pagePaddingYShort : AppSpacing.pagePaddingY;
-                return SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: narrow ? AppSpacing.mobileGutter : AppSpacing.pagePaddingX,
-                    vertical: pagePaddingY,
-                  ),
-                  child: ConstrainedBox(
-                    // Center the card vertically when there is room (.auth-wrap).
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight - 2 * pagePaddingY),
-                    child: Center(child: _buildCard(narrow: narrow, short: short)),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+    return ScaledPage(
+      topBar: TopBar(onAdmin: _showAdminNotReady),
+      cardMaxWidth: AppSpacing.narrowCardMaxWidth,
+      cardPaddingX: AppSpacing.authCardPaddingX,
+      cardPaddingY: AppSpacing.authCardPaddingY,
+      spacingReferenceHeight: _spacingReferenceHeight,
+      minFitHeight: _minFitHeight,
+      builder: (context, scale) => _buildContent(scale),
     );
   }
 
-  Widget _buildCard({required bool narrow, required bool short}) {
-    final sectionGap = short ? AppSpacing.gapM : AppSpacing.gapXxl;
-    return Container(
-      constraints: const BoxConstraints(maxWidth: AppSpacing.narrowCardMaxWidth),
-      padding: EdgeInsets.symmetric(
-        horizontal: narrow ? AppSpacing.gapXxl : AppSpacing.authCardPaddingX,
-        vertical: short
-            ? AppSpacing.authCardPaddingYShort
-            : (narrow ? AppSpacing.gapXxl : AppSpacing.authCardPaddingY),
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-        boxShadow: const [BoxShadow(color: AppColors.cardShadow, blurRadius: 20, offset: Offset(0, 6))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Identify yourself', style: AppText.h1),
-          SizedBox(height: short ? AppSpacing.gapXxs : AppSpacing.gapS),
-          Text('Scan your nurse card or enter your ID.', style: AppText.bodyMuted),
-          SizedBox(height: sectionGap),
-          _buildTabs(short: short),
-          SizedBox(height: sectionGap),
-          if (_error != null)
-            AppAlert(
-              message: _error!,
-              tone: AlertTone.error,
-              margin: short
-                  ? const EdgeInsets.only(bottom: AppSpacing.gapM)
-                  : const EdgeInsets.symmetric(vertical: AppSpacing.gapL),
-            ),
-          if (_tab == _LoginTab.scan)
-            _buildScanPanel()
-          else
-            DigitEntry(
-              controller: _idController,
-              minLength: 4,
-              maxLength: 6,
-              buttonLabel: 'Find my ID',
-              hasError: _error != null,
-              busy: _busy,
-              dense: short,
-              onSubmit: () => _login(_idController.text, LoginMethod.manual),
-            ),
-        ],
-      ),
+  /// Heading, tabs, then the active tab's panel filling the rest of the card (.auth-card).
+  Widget _buildContent(AppScale scale) {
+    final sectionGap = scale.size(AppSpacing.gapXxl);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Identify yourself', style: scale.h1),
+        SizedBox(height: scale.size(AppSpacing.gapS)),
+        Text('Scan your nurse card or enter your ID.', style: scale.bodyMuted),
+        SizedBox(height: sectionGap),
+        _buildTabs(scale),
+        SizedBox(height: sectionGap),
+        if (_error != null)
+          AppAlert(
+            message: _error!,
+            tone: AlertTone.error,
+            scale: scale,
+            margin: EdgeInsets.only(bottom: scale.size(AppSpacing.gapM)),
+          ),
+        Expanded(
+          child: _tab == _LoginTab.scan
+              ? _buildScanPanel(scale)
+              : DigitEntry(
+                  controller: _idController,
+                  minLength: 4,
+                  maxLength: 6,
+                  buttonLabel: 'Find my ID',
+                  hasError: _error != null,
+                  busy: _busy,
+                  scale: scale,
+                  onSubmit: () => _login(_idController.text, LoginMethod.manual),
+                ),
+        ),
+      ],
     );
   }
 
   /// "Scan card | Enter ID" tabs (.tabs): active tab has teal text and a 3 px teal underline.
-  Widget _buildTabs({required bool short}) {
+  Widget _buildTabs(AppScale scale) {
     Widget tab(String label, _LoginTab value) {
       final active = _tab == value;
       return Expanded(
         child: InkWell(
           onTap: _busy ? null : () => _selectTab(value),
           child: Container(
-            height: short ? AppSpacing.tabHeightShort : AppSpacing.tabHeight,
+            height: scale.control(AppSpacing.tabHeight),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               border: Border(
@@ -204,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             child: Text(
               label,
-              style: AppText.button.copyWith(color: active ? AppColors.primary : AppColors.muted),
+              style: scale.button.copyWith(color: active ? AppColors.primary : AppColors.muted),
             ),
           ),
         ),
@@ -217,14 +192,25 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  /// Light-teal panel with a dashed border (.scan-panel).
-  Widget _buildScanPanel() {
+  /// Light-teal panel with a dashed border (.scan-panel), filling the space it is given.
+  Widget _buildScanPanel(AppScale scale) {
+    final gap = scale.size(AppSpacing.gapXl);
+    Widget button(String label, VoidCallback? onPressed, {AppButtonVariant variant = AppButtonVariant.primary}) =>
+        AppButton(
+          label: label,
+          onPressed: onPressed,
+          variant: variant,
+          height: scale.buttonHeight,
+          textStyle: scale.button,
+        );
+
     return DashedBorder(
       color: AppColors.primary,
       radius: AppSpacing.radiusCard,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 385),
-        padding: const EdgeInsets.all(28),
+        width: double.infinity,
+        height: double.infinity,
+        padding: EdgeInsets.all(scale.size(AppSpacing.scanPanelPadding)),
         decoration: BoxDecoration(
           color: AppColors.primaryLight,
           borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
@@ -232,38 +218,30 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            IdCardArt(reading: _busy),
-            const SizedBox(height: AppSpacing.gapXl),
+            IdCardArt(reading: _busy, scale: scale),
+            SizedBox(height: gap),
             Text(
               _busy ? 'Reading card…' : 'Hold your card against the reader below the screen',
               textAlign: TextAlign.center,
-              style: AppText.strong,
+              style: scale.strong,
             ),
             if (AppConfig.demoMode) ...[
-              const SizedBox(height: AppSpacing.gapXl),
-              AppButton(
-                label: _busy ? 'Reading card…' : 'Simulate card scan',
-                onPressed: _busy ? null : () => _login(AppConfig.demoNurseId, LoginMethod.scan),
+              SizedBox(height: gap),
+              button(
+                _busy ? 'Reading card…' : 'Simulate card scan',
+                _busy ? null : () => _login(AppConfig.demoNurseId, LoginMethod.scan),
               ),
             ],
             if (_error != null) ...[
-              const SizedBox(height: AppSpacing.gapXl),
+              SizedBox(height: gap),
               Wrap(
                 alignment: WrapAlignment.center,
-                spacing: AppSpacing.gapM,
-                runSpacing: AppSpacing.gapM,
+                spacing: scale.size(AppSpacing.gapM),
+                runSpacing: scale.size(AppSpacing.gapM),
                 children: [
                   // A real reader just needs another tap, so "Scan again" clears the error.
-                  AppButton(
-                    label: 'Scan again',
-                    variant: AppButtonVariant.secondary,
-                    onPressed: () => setState(() => _error = null),
-                  ),
-                  AppButton(
-                    label: 'Enter ID',
-                    variant: AppButtonVariant.ghost,
-                    onPressed: () => _selectTab(_LoginTab.enterId),
-                  ),
+                  button('Scan again', () => setState(() => _error = null), variant: AppButtonVariant.secondary),
+                  button('Enter ID', () => _selectTab(_LoginTab.enterId), variant: AppButtonVariant.ghost),
                 ],
               ),
             ],

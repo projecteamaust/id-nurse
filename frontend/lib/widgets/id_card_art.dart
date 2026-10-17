@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
 
 /// The small ID card drawing on the Scan tab (.id-card-art).
 /// While [reading] is true a teal line sweeps up and down over the card (.scan-line).
+/// The drawing is made at prototype size and then scaled as a whole with [scale].
 class IdCardArt extends StatefulWidget {
   final bool reading;
+  final AppScale scale;
 
-  const IdCardArt({super.key, required this.reading});
+  const IdCardArt({super.key, required this.reading, this.scale = AppScale.none});
 
   @override
   State<IdCardArt> createState() => _IdCardArtState();
@@ -56,7 +59,7 @@ class _IdCardArtState extends State<IdCardArt> with SingleTickerProviderStateMix
           ),
         );
 
-    return Container(
+    final card = Container(
       width: 126,
       height: 88,
       decoration: BoxDecoration(
@@ -93,6 +96,11 @@ class _IdCardArtState extends State<IdCardArt> with SingleTickerProviderStateMix
           ],
         ),
       ),
+    );
+    return SizedBox(
+      width: widget.scale.size(126),
+      height: widget.scale.size(88),
+      child: FittedBox(child: card),
     );
   }
 }
