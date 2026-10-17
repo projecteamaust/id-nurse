@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_scale.dart';
 import '../widgets/admin_shell.dart';
 
-/// TEMPORARY page for the dashboard pages that are built in the next tasks
-/// (Dispensing log, Reports). Each task replaces one of these.
+/// TEMPORARY page for the dashboard page built in the next task (Reports).
 class AdminPlaceholderScreen extends StatelessWidget {
   const AdminPlaceholderScreen({super.key});
 

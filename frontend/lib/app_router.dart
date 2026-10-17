@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'screens/admin_placeholder_screen.dart';
 import 'screens/collect_screen.dart';
 import 'screens/complete_screen.dart';
+import 'screens/dispensing_log_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/low_stock_screen.dart';
 import 'screens/patient_screen.dart';
@@ -40,8 +41,8 @@ GoRouter buildRouter(AuthState auth) {
           GoRoute(path: '/supervisor/problems', builder: (context, state) => const ProblemReportsScreen()),
           GoRoute(path: '/supervisor/stock', builder: (context, state) => const StockScreen()),
           GoRoute(path: '/supervisor/low-stock', builder: (context, state) => const LowStockScreen()),
-          for (final path in ['/supervisor/log', '/supervisor/reports'])
-            GoRoute(path: path, builder: (context, state) => const AdminPlaceholderScreen()),
+          GoRoute(path: '/supervisor/log', builder: (context, state) => const DispensingLogScreen()),
+          GoRoute(path: '/supervisor/reports', builder: (context, state) => const AdminPlaceholderScreen()),
         ],
       ),
       GoRoute(path: '/patient', builder: (context, state) => const PatientScreen()),

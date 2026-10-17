@@ -128,4 +128,9 @@ class AppSpacing {
   static const double adminContentPaddingY = 24;
   static const double tableCellPaddingX = 16; // th, td
   static const double tableCellPaddingY = 10; // prototype 14; tighter so tables fit at 1280x720
+  static const double segmentedPadding = 4; // .segmented
+  static const double segmentedButtonHeight = 44;
+  static const double segmentedButtonPaddingX = 16;
+  static const double toolbarGap = 12; // .toolbar
+  static const double nurseFilterWidth = 220;
 }

@@ -40,6 +40,8 @@ class AppColors {
   static const pickupBoxBorder = Color(0xFF99AEAB);
   static const toast = Color(0xFF12302D);
   static const modalBackdrop = Color(0x730A2320); // .modal-backdrop rgba(10,35,32,.45)
+  static const segmentedBg = Color(0xFFE8EFED); // .segmented
+  static const segmentedShadow = Color(0x1F12302D); // .segmented button.active rgba(18,48,45,.12)
   static const adminSidebar = Color(0xFF102E2B);
   static const adminSidebarText = Color(0xFFB9CDCA);
   static const adminSidebarMuted = Color(0xFF95AAA7); // .sidebar-foot span

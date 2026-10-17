@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:id_nurse/models/audit_entry.dart';
 import 'package:id_nurse/models/item.dart';
 import 'package:id_nurse/models/login_response.dart';
 import 'package:id_nurse/models/low_stock_item.dart';
@@ -25,6 +26,22 @@ void main() {
     expect(login.user.name, 'Maya Chen');
     expect(login.user.isSupervisor, isFalse);
     expect(login.toJson(), json);
+  });
+
+  test('AuditEntry matches GET /audit (person and system actor)', () {
+    final json = _parse('''
+      { "id": 81, "timestamp": "2026-10-16T08:45:20+03:00",
+        "actor": { "employee_id": "48216", "name": "Maya Chen" },
+        "action": "order_approved", "order_id": 17, "summary": "Approved order #17" }
+    ''');
+    final entry = AuditEntry.fromJson(json);
+    expect(entry.actor?.name, 'Maya Chen');
+    expect(entry.actionLabel, 'Order approved');
+    expect(entry.toJson(), json);
+
+    final system = {...json, 'actor': null, 'action': 'pick_ok', 'summary': 'Picked 1 × Sterile gauze pads (slot 3)'};
+    expect(AuditEntry.fromJson(system).toJson(), system);
+    expect(AuditEntry.fromJson({...json, 'action': 'new_thing'}).actionLabel, 'new_thing');
   });
 
   test('LowStockItem matches GET /reports/low-stock', () {

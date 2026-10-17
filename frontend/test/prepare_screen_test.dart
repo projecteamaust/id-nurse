@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:id_nurse/main.dart';
+import 'package:id_nurse/models/audit_entry.dart';
 import 'package:id_nurse/models/item.dart';
 import 'package:id_nurse/models/login_response.dart';
 import 'package:id_nurse/models/low_stock_item.dart';
@@ -62,7 +63,13 @@ class _NoDemoApi implements ApiService {
   @override
   Future<Order> getOrder(int orderId) => inner.getOrder(orderId);
   @override
-  Future<List<OrderSummary>> listOrders({int limit = 20}) => inner.listOrders(limit: limit);
+  Future<List<OrderSummary>> listOrders({int limit = 20, int? nurseId, DateTime? from, DateTime? to}) =>
+      inner.listOrders(limit: limit, nurseId: nurseId, from: from, to: to);
+  @override
+  Future<List<User>> listUsers({String? role}) => inner.listUsers(role: role);
+  @override
+  Future<List<AuditEntry>> listAudit({DateTime? from, DateTime? to, int? nurseId, int limit = 100}) =>
+      inner.listAudit(from: from, to: to, nurseId: nurseId, limit: limit);
   @override
   Future<ProblemReport> reportProblem(int orderId, {String? note}) => inner.reportProblem(orderId, note: note);
   @override

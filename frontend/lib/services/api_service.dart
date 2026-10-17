@@ -1,3 +1,4 @@
+import '../models/audit_entry.dart';
 import '../models/item.dart';
 import '../models/login_response.dart';
 import '../models/low_stock_item.dart';
@@ -75,8 +76,16 @@ abstract class ApiService {
   /// GET /orders/{id}
   Future<Order> getOrder(int orderId);
 
-  /// GET /orders?limit= (newest first)
-  Future<List<OrderSummary>> listOrders({int limit = 20});
+  /// GET /orders?limit= (newest first). A supervisor can filter by nurse (`?nurse_id=`, the
+  /// user id) and by day (`?from=` / `?to=`, inclusive; only the date part is used).
+  Future<List<OrderSummary>> listOrders({int limit = 20, int? nurseId, DateTime? from, DateTime? to});
+
+  /// GET /users?role= (supervisor), sorted by name
+  Future<List<User>> listUsers({String? role});
+
+  /// GET /audit (supervisor): actions, newest first, filtered like [listOrders];
+  /// [nurseId] keeps only actions done by that user
+  Future<List<AuditEntry>> listAudit({DateTime? from, DateTime? to, int? nurseId, int limit = 100});
 
   /// POST /orders/{id}/report -> report with status open (only PARTIAL or FAILED orders)
   Future<ProblemReport> reportProblem(int orderId, {String? note});

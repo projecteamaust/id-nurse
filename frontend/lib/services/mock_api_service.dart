@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+import '../models/audit_entry.dart';
 import '../models/item.dart';
 import '../models/login_response.dart';
 import '../models/low_stock_item.dart';
@@ -23,6 +24,8 @@ import 'demo_controls.dart';
 ///   [pickInterval]. A failed pick (empty drawer) is retried once, then the order stops as
 ///   PARTIAL or FAILED (docs/order-flow-and-arm.md). Stock goes down only when a unit is
 ///   "picked", never at order creation.
+/// - Writes every important action to an audit log, like the backend's `audit_log`, which
+///   the dispensing log reads with GET /audit.
 class MockApiService implements ApiService, DemoControls {
   /// Fake network delay on every call, so loading states can be seen.
   final Duration networkDelay;
@@ -30,10 +33,15 @@ class MockApiService implements ApiService, DemoControls {
   /// Time the fake robot needs to pick one unit.
   final Duration pickInterval;
 
+  /// Where "now" comes from. Always the real time in the app; tests can pass a fake
+  /// clock to create orders on other days (for the date filters).
+  final DateTime Function() _clock;
+
   MockApiService({
     this.networkDelay = const Duration(milliseconds: 600),
     this.pickInterval = const Duration(seconds: 1),
-  });
+    @visibleForTesting DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   /// TESTS ONLY: after this many units have been picked in an order, every further pick
   /// fails like an arm fault. 0 forces FAILED; fewer than the order's units forces PARTIAL.
@@ -75,8 +83,8 @@ class MockApiService implements ApiService, DemoControls {
   final Map<int, Timer> _robotTimers = {};
   int _nextOrderId = 1;
 
-  /// audit_log rows. The mock writes problem reports and stock edits here (the dispensing
-  /// log task adds the other actions).
+  /// audit_log rows: id, timestamp, actor (user id, or null for the system), action,
+  /// order_id, summary and details (docs/api.md, GET /audit).
   final List<Map<String, dynamic>> _auditLog = [];
   int _nextAuditId = 1;
   Map<String, dynamic>? _currentUser;
@@ -87,12 +95,18 @@ class MockApiService implements ApiService, DemoControls {
   Future<LoginResponse> login(String employeeId, LoginMethod method, {String? password}) async {
     await _delay();
     final user = _users.where((u) => u['employee_id'] == employeeId).firstOrNull;
-    if (user == null) throw const ApiException(401, 'No staff ID found');
+    if (user == null) {
+      _writeAudit(null, 'login_failed', {'employee_id': employeeId}, summary: 'Sign in failed: no staff ID $employeeId');
+      throw const ApiException(401, 'No staff ID found');
+    }
     if (user['role'] == 'supervisor' && password != demoSupervisorPassword) {
+      _writeAudit(user, 'login_failed', {}, summary: 'Sign in failed: wrong password');
       throw const ApiException(401, 'Wrong password');
     }
     // Nurse: a password, if sent, is ignored (docs/api.md).
     _currentUser = user;
+    final how = method == LoginMethod.scan ? 'card scan' : 'employee ID';
+    _writeAudit(user, 'login_success', {'method': method.value}, summary: '${user['name']} signed in ($how)');
     return LoginResponse.fromJson({
       'access_token': 'mock-token-${user['employee_id']}',
       'token_type': 'bearer',
@@ -147,7 +161,8 @@ class MockApiService implements ApiService, DemoControls {
     if (item == null) throw const ApiException(404, 'Item not found');
     final old = item['quantity'] as int;
     item['quantity'] = quantity;
-    _writeAudit(user, 'stock_edit', {'item_id': itemId, 'old_quantity': old, 'new_quantity': quantity});
+    _writeAudit(user, 'stock_edit', {'item_id': itemId, 'old_quantity': old, 'new_quantity': quantity},
+        summary: 'Set ${item['name']} to $quantity units (was $old)');
     return Item.fromJson(_itemJson(item));
   }
 
@@ -209,6 +224,12 @@ class MockApiService implements ApiService, DemoControls {
       'items': lines,
     };
     _orders[order['id'] as int] = order;
+    final units = lines.fold<int>(0, (sum, l) => sum + (l['qty_requested'] as int));
+    final itemWord = lines.length == 1 ? 'item' : 'items';
+    final unitWord = units == 1 ? 'unit' : 'units';
+    _writeAudit(user, 'order_created', {}, orderId: order['id'] as int,
+        summary: 'Created order #${order['id']} for patient ${patient['file_number']} '
+            '(${lines.length} $itemWord, $units $unitWord)');
     return Order.fromJson(order);
   }
 
@@ -218,6 +239,7 @@ class MockApiService implements ApiService, DemoControls {
     final order = _requireOwnPendingOrder(orderId);
     order['status'] = OrderStatus.dispensing.value;
     order['approved_at'] = _now();
+    _writeAudit(_currentUser, 'order_approved', {}, orderId: orderId, summary: 'Approved order #$orderId');
     _startRobot(orderId);
     return Order.fromJson(order);
   }
@@ -227,6 +249,7 @@ class MockApiService implements ApiService, DemoControls {
     await _delay();
     final order = _requireOwnPendingOrder(orderId);
     order['status'] = OrderStatus.cancelled.value;
+    _writeAudit(_currentUser, 'order_cancelled', {}, orderId: orderId, summary: 'Cancelled order #$orderId');
     return Order.fromJson(order);
   }
 
@@ -237,11 +260,17 @@ class MockApiService implements ApiService, DemoControls {
   }
 
   @override
-  Future<List<OrderSummary>> listOrders({int limit = 20}) async {
+  Future<List<OrderSummary>> listOrders({int limit = 20, int? nurseId, DateTime? from, DateTime? to}) async {
     await _delay();
     final user = _requireUser();
+    final supervisor = user['role'] == 'supervisor';
+    final inRange = _dayFilter(from, to);
+    // nurse_id is the user id; orders store the nurse's employee_id.
+    final nurseEmployeeId = nurseId == null ? null : _users.where((u) => u['id'] == nurseId).firstOrNull?['employee_id'];
     final visible = _orders.values
-        .where((o) => user['role'] == 'supervisor' || o['nurse']['employee_id'] == user['employee_id'])
+        .where((o) => supervisor || o['nurse']['employee_id'] == user['employee_id'])
+        .where((o) => !supervisor || nurseId == null || o['nurse']['employee_id'] == nurseEmployeeId)
+        .where((o) => inRange(o['created_at'] as String))
         .toList()
       ..sort((a, b) => (b['id'] as int).compareTo(a['id'] as int)); // newest first
     return visible.take(limit).map((o) {
@@ -256,6 +285,55 @@ class MockApiService implements ApiService, DemoControls {
         'total_units': lines.fold<int>(0, (sum, l) => sum + (l['qty_requested'] as int)),
       });
     }).toList();
+  }
+
+  // ---------------------------------------------------------------- users and audit log
+
+  @override
+  Future<List<User>> listUsers({String? role}) async {
+    await _delay();
+    _requireSupervisor();
+    return _users.where((u) => role == null || u['role'] == role).map(User.fromJson).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  /// Most entries GET /audit returns (docs/api.md).
+  static const maxAuditLimit = 500;
+
+  @override
+  Future<List<AuditEntry>> listAudit({DateTime? from, DateTime? to, int? nurseId, int limit = 100}) async {
+    await _delay();
+    _requireSupervisor();
+    final inRange = _dayFilter(from, to);
+    return _auditLog.reversed // newest first
+        .where((e) => inRange(e['timestamp'] as String))
+        .where((e) => nurseId == null || e['actor'] == nurseId)
+        .take(limit.clamp(1, maxAuditLimit))
+        .map((e) => AuditEntry.fromJson({
+              'id': e['id'],
+              'timestamp': e['timestamp'],
+              'actor': e['actor'] == null ? null : _userRef(e['actor'] as int),
+              'action': e['action'],
+              'order_id': e['order_id'],
+              'summary': e['summary'],
+            }))
+        .toList();
+  }
+
+  /// A test for "is this ISO timestamp's day between [from] and [to]?" (both inclusive,
+  /// both optional). The day is the date part of the timestamp: the server's local date.
+  /// [from] after [to] is a 422, like the backend.
+  bool Function(String timestamp) _dayFilter(DateTime? from, DateTime? to) {
+    final day = DateFormat('yyyy-MM-dd');
+    final first = from == null ? null : day.format(from);
+    final last = to == null ? null : day.format(to);
+    if (first != null && last != null && first.compareTo(last) > 0) {
+      throw const ApiException(422, 'from must not be after to');
+    }
+    return (timestamp) {
+      final date = timestamp.substring(0, 10);
+      return (first == null || date.compareTo(first) >= 0) && (last == null || date.compareTo(last) <= 0);
+    };
   }
 
   // ---------------------------------------------------------------- problem reports
@@ -282,7 +360,7 @@ class MockApiService implements ApiService, DemoControls {
     if (alreadyOpen) throw const ApiException(409, 'This order already has an open report');
 
     final lines = (order['items'] as List).cast<Map<String, dynamic>>();
-    final entry = _writeAudit(user, 'problem_reported', {
+    final entry = _writeAudit(user, 'problem_reported', orderId: orderId, summary: 'Reported a problem with order #$orderId', {
       'order_id': orderId,
       'note': text,
       'missing_items': [
@@ -317,7 +395,9 @@ class MockApiService implements ApiService, DemoControls {
     final entry = _auditLog.where((e) => e['id'] == reportId && e['action'] == 'problem_reported').firstOrNull;
     if (entry == null) throw const ApiException(404, 'Report not found');
     if (_resolvedEntry(reportId) != null) throw const ApiException(409, 'Report is already resolved');
-    _writeAudit(user, 'problem_resolved', {'report_id': reportId});
+    final orderId = entry['details']['order_id'] as int;
+    _writeAudit(user, 'problem_resolved', {'report_id': reportId},
+        orderId: orderId, summary: 'Resolved the problem report for order #$orderId');
     return _reportFrom(entry);
   }
 
@@ -349,13 +429,21 @@ class MockApiService implements ApiService, DemoControls {
     return {'employee_id': user['employee_id'], 'name': user['name']};
   }
 
-  /// Adds one audit_log row (id, timestamp, actor, action, details) and returns it.
-  Map<String, dynamic> _writeAudit(Map<String, dynamic> user, String action, Map<String, dynamic> details) {
+  /// Adds one audit_log row and returns it. [user] is null for the system (the robot).
+  Map<String, dynamic> _writeAudit(
+    Map<String, dynamic>? user,
+    String action,
+    Map<String, dynamic> details, {
+    int? orderId,
+    required String summary,
+  }) {
     final entry = {
       'id': _nextAuditId++,
       'timestamp': _now(),
-      'actor': user['id'],
+      'actor': user?['id'],
       'action': action,
+      'order_id': orderId,
+      'summary': summary,
       'details': details,
     };
     _auditLog.add(entry);
@@ -391,6 +479,8 @@ class MockApiService implements ApiService, DemoControls {
               ? OrderStatus.partial.value
               : OrderStatus.failed.value;
       order['completed_at'] = _now();
+      _writeAudit(null, 'order_finished', {}, orderId: orderId,
+          summary: 'Order #$orderId finished: ${order['status']} ($dispensed of $requested units)');
       timer.cancel();
       _robotTimers.remove(orderId);
     }
@@ -402,15 +492,22 @@ class MockApiService implements ApiService, DemoControls {
       final item = _items.firstWhere((i) => i['id'] == next['item_id']);
       final armFault = (failPicksAfterUnits != null && picked >= failPicksAfterUnits!) ||
           _faultedOrders.contains(orderId);
+      final where = '${next['name']} (slot ${next['slot_number']})';
       if (!armFault && (item['quantity'] as int) > 0) {
         item['quantity'] = (item['quantity'] as int) - 1; // stock goes down only on a real pick
         next['qty_dispensed'] = (next['qty_dispensed'] as int) + 1;
         picked++;
         retrying = false;
-      } else if (!retrying) {
-        retrying = true; // try this pick once more on the next tick
+        _writeAudit(null, 'pick_ok', {'item_id': next['item_id']}, orderId: orderId, summary: 'Picked 1 × $where');
       } else {
-        finish(timer); // retried and failed again: stop the order
+        final reason = armFault ? 'arm fault' : 'drawer empty';
+        _writeAudit(null, 'pick_failed', {'item_id': next['item_id'], 'reason': reason},
+            orderId: orderId, summary: 'Pick failed: $where, $reason');
+        if (!retrying) {
+          retrying = true; // try this pick once more on the next tick
+        } else {
+          finish(timer); // retried and failed again: stop the order
+        }
       }
     });
   }
@@ -462,8 +559,8 @@ class MockApiService implements ApiService, DemoControls {
       };
 
   /// Current time as ISO 8601 with the timezone offset, e.g. 2026-10-16T08:45:12+03:00.
-  static String _now() {
-    final now = DateTime.now();
+  String _now() {
+    final now = _clock();
     final offset = now.timeZoneOffset;
     final sign = offset.isNegative ? '-' : '+';
     final hours = offset.inHours.abs().toString().padLeft(2, '0');

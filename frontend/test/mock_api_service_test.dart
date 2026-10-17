@@ -260,6 +260,133 @@ void main() {
     });
   });
 
+  group('dispensing log (GET /audit, GET /users, GET /orders filters)', () {
+    Future<void> signInSupervisor() =>
+        api.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
+
+    setUp(signInNurse);
+
+    test('every action is logged with a summary; robot actions have no actor', () async {
+      final order = await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]);
+      await api.approveOrder(order.id);
+      await waitUntilFinal(order.id);
+      await signInSupervisor();
+      final log = (await api.listAudit()).reversed.toList(); // oldest first, to read it like a story
+      expect(log.map((e) => e.action), [
+        'login_success', // the nurse, in setUp
+        'order_created',
+        'order_approved',
+        'pick_ok',
+        'order_finished',
+        'login_success', // the supervisor
+      ]);
+      expect(log[0].summary, 'Maya Chen signed in (employee ID)');
+      expect(log[1].summary, 'Created order #1 for patient 284913 (1 item, 1 unit)');
+      expect(log[1].actor?.employeeId, '48216');
+      expect(log[2].summary, 'Approved order #1');
+      expect(log[3].summary, 'Picked 1 × Sterile gauze pads (slot 1)');
+      expect(log[3].actor, isNull); // the system
+      expect(log[3].orderId, 1);
+      expect(log[4].summary, 'Order #1 finished: DONE (1 of 1 units)');
+      expect(log[5].orderId, isNull);
+      expect(log[5].actionLabel, 'Signed in');
+    });
+
+    test('failed picks, failed sign ins, stock edits and cancels are logged', () async {
+      api.failPicksAfterUnits = 0;
+      final failed = await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]);
+      await api.approveOrder(failed.id);
+      await waitUntilFinal(failed.id);
+      final cancelled = await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]);
+      await api.cancelOrder(cancelled.id);
+      await expectLater(api.login('99999', LoginMethod.manual), _apiError(401));
+      await expectLater(api.login('31082', LoginMethod.manual, password: 'nope'), _apiError(401));
+      await signInSupervisor();
+      await api.updateItemQuantity(2, 30);
+
+      final summaries = (await api.listAudit()).map((e) => e.summary).toList();
+      expect(summaries, contains('Pick failed: Sterile gauze pads (slot 1), arm fault')); // twice: retried once
+      expect(summaries.where((s) => s.startsWith('Pick failed')), hasLength(2));
+      expect(summaries, contains('Order #1 finished: FAILED (0 of 1 units)'));
+      expect(summaries, contains('Cancelled order #2'));
+      expect(summaries, contains('Sign in failed: no staff ID 99999'));
+      expect(summaries, contains('Sign in failed: wrong password'));
+      expect(summaries.first, 'Set Adhesive dressing to 30 units (was 9)'); // newest first
+    });
+
+    test('the nurse filter keeps only that user\'s actions and orders', () async {
+      await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]);
+      await signInSupervisor();
+      await api.createOrder('548220', const [OrderLineRequest(itemId: 1, qty: 1)]);
+      final nurse = (await api.listUsers(role: 'nurse')).single;
+      expect(nurse.name, 'Maya Chen');
+      expect(nurse.id, 1);
+
+      final actions = await api.listAudit(nurseId: nurse.id);
+      expect(actions.every((e) => e.actor?.employeeId == '48216'), isTrue);
+      expect(actions.map((e) => e.action), ['order_created', 'login_success']);
+      expect((await api.listOrders(nurseId: nurse.id)).map((o) => o.patientFileNumber), ['284913']);
+      expect(await api.listOrders(), hasLength(2));
+    });
+
+    test('users are sorted by name and supervisor only', () async {
+      await signInSupervisor();
+      expect((await api.listUsers()).map((u) => u.name), ['Elena Ruiz', 'Maya Chen']);
+      expect((await api.listUsers(role: 'supervisor')).single.employeeId, '31082');
+      await signInNurse();
+      await expectLater(api.listUsers(), _apiError(403));
+      await expectLater(api.listAudit(), _apiError(403));
+    });
+
+    test('limit is respected (at most 500)', () async {
+      await signInSupervisor();
+      for (var i = 0; i < 5; i++) {
+        await api.updateItemQuantity(1, 40 + i);
+      }
+      expect(await api.listAudit(limit: 3), hasLength(3));
+      expect(await api.listAudit(limit: 1000), hasLength(7)); // 2 sign ins + 5 edits
+    });
+  });
+
+  group('date filters (inclusive, by local day)', () {
+    // A clock the test moves: orders and actions are created "on" different days.
+    var now = DateTime(2026, 10, 14, 23, 59);
+    late MockApiService dated;
+
+    setUp(() {
+      now = DateTime(2026, 10, 14, 23, 59);
+      dated = MockApiService(networkDelay: Duration.zero, pickInterval: const Duration(milliseconds: 5), clock: () => now);
+    });
+
+    tearDown(() => dated.dispose());
+
+    test('from and to include their whole day; outside days are left out', () async {
+      await dated.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
+      await dated.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]); // Oct 14, 23:59
+      now = DateTime(2026, 10, 15, 0, 0);
+      await dated.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]); // Oct 15, 00:00
+      now = DateTime(2026, 10, 16, 12, 0);
+      await dated.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]); // Oct 16
+
+      List<int> ids(List<dynamic> orders) => [for (final o in orders) o.id as int];
+      expect(ids(await dated.listOrders(from: DateTime(2026, 10, 15))), [3, 2]);
+      expect(ids(await dated.listOrders(to: DateTime(2026, 10, 14))), [1]);
+      expect(ids(await dated.listOrders(from: DateTime(2026, 10, 15), to: DateTime(2026, 10, 15))), [2]);
+      expect(ids(await dated.listOrders(from: DateTime(2026, 10, 14), to: DateTime(2026, 10, 16))), [3, 2, 1]);
+      expect(await dated.listOrders(from: DateTime(2026, 10, 17)), isEmpty);
+
+      final oct15 = await dated.listAudit(from: DateTime(2026, 10, 15), to: DateTime(2026, 10, 15));
+      expect(oct15.map((e) => e.summary), ['Created order #2 for patient 284913 (1 item, 1 unit)']);
+      expect(oct15.single.timestamp, startsWith('2026-10-15T00:00:00'));
+    });
+
+    test('from after to gives 422', () async {
+      await dated.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
+      await expectLater(dated.listOrders(from: DateTime(2026, 10, 16), to: DateTime(2026, 10, 15)), _apiError(422));
+      await expectLater(dated.listAudit(from: DateTime(2026, 10, 16), to: DateTime(2026, 10, 15)), _apiError(422));
+    });
+  });
+
   group('problem reports', () {
     Future<void> signInSupervisor() =>
         api.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
