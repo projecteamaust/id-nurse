@@ -116,6 +116,20 @@ class AppText {
     color: AppColors.text,
   );
 
+  /// Small muted labels and details (.patient-card small / span)
+  static const small = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 15,
+    color: AppColors.muted,
+  );
+
+  /// Step names in the step tracker (.step)
+  static const step = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 13,
+    color: AppColors.disabledStep,
+  );
+
   /// Name/ward block in the top bar (.identity)
   static const identity = TextStyle(
     fontFamily: fontFamily,

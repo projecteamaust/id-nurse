@@ -7,11 +7,12 @@ import '../theme/app_text.dart';
 import 'app_button.dart';
 import 'keypad.dart';
 
-/// "ID number" field + keypad + submit button (.digit-entry).
-/// Used for the staff ID now, and for the patient file number later.
+/// Number field + keypad + submit button (.digit-entry).
+/// Used for the staff ID (login) and the patient file number.
 /// The number can be typed on a keyboard or with the on-screen keypad.
 class DigitEntry extends StatelessWidget {
   final TextEditingController controller;
+  final String label; // text above the field
   final int minLength;
   final int maxLength;
   final String buttonLabel;
@@ -23,6 +24,7 @@ class DigitEntry extends StatelessWidget {
   const DigitEntry({
     super.key,
     required this.controller,
+    this.label = 'ID number',
     required this.minLength,
     required this.maxLength,
     required this.buttonLabel,
@@ -53,7 +55,7 @@ class DigitEntry extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('ID number', style: AppText.label),
+                Text(label, style: AppText.label),
                 SizedBox(height: dense ? AppSpacing.gapXs : AppSpacing.gapS),
                 TextField(
                   key: const Key('digit-entry-field'),

@@ -40,6 +40,16 @@ class AppSpacing {
   static const double gapXl = 20;
   static const double gapXxl = 24;
   static const double keypadGap = 10;
+  static const double twoColGap = 36; // .two-col-entry
+  static const double patientCardPadding = 24; // .patient-card
+  static const double patientCardGap = 22;
+  static const double avatarSize = 44; // .avatar
+  static const double stepDotSize = 12; // .step i
+
+  // Below this card width the Patient screen stacks its two columns
+  static const double twoColBreakpoint = 760;
+  // Below this width the patient card puts room and diagnosis on a second row
+  static const double patientCardBreakpoint = 560;
 
   // Screen width below which we use compact paddings
   static const double compactBreakpoint = 720;

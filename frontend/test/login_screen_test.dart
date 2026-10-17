@@ -97,7 +97,7 @@ void main() {
     await tapKeys(tester, '48216');
     await tester.tap(find.text('Find my ID'));
     await tester.pumpAndSettle();
-    expect(find.text('Signed in as Maya Chen'), findsOneWidget);
+    expect(find.text('Which patient?'), findsOneWidget);
 
     // Sign out goes back to the login screen.
     await tester.tap(find.text('Sign out'));
@@ -120,7 +120,7 @@ void main() {
     await tester.pump();
     expect(find.text('Reading card…'), findsWidgets);
     await tester.pumpAndSettle();
-    expect(find.text('Signed in as Maya Chen'), findsOneWidget);
+    expect(find.text('Which patient?'), findsOneWidget);
   });
 
   group('Enter ID tab fits on short screens without scrolling', () {
@@ -168,6 +168,6 @@ void main() {
     await openApp(tester);
     await tester.tap(find.text('Simulate card scan'));
     await tester.pumpAndSettle();
-    expect(find.text('Signed in as Maya Chen'), findsOneWidget);
+    expect(find.text('Which patient?'), findsOneWidget);
   });
 }

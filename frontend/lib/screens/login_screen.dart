@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final response = await context.read<ApiService>().login(employeeId, method);
       if (!mounted) return;
       context.read<AuthState>().signIn(response);
-      context.go('/signed-in');
+      context.go('/patient');
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.statusCode == 401
