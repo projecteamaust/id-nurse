@@ -61,6 +61,14 @@ void main() {
     expect(find.text('Your request is empty'), findsOneWidget);
   });
 
+  testWidgets('search placeholder uses the normal text style, not the wide keypad digits', (tester) async {
+    await openSupplies(tester);
+    final field = tester.widget<TextField>(find.byKey(const Key('supply-search')));
+    final hint = field.decoration!.hintStyle!;
+    expect(hint.letterSpacing, isNull);
+    expect(hint.fontSize, field.style!.fontSize);
+  });
+
   testWidgets('tapping a category switches the list', (tester) async {
     await openSupplies(tester);
     await tester.tap(find.text('Gloves and protection'));

@@ -95,6 +95,7 @@ class DigitEntry extends StatelessWidget {
                   onSubmitted: (_) => canSubmit ? onSubmit() : null,
                   decoration: InputDecoration(
                     hintText: '_ _ _ _ _ _',
+                    hintStyle: scale.text(AppText.digitInput).copyWith(color: AppColors.muted),
                     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: scale.size(AppSpacing.fieldPaddingY)),
                     enabledBorder: hasError
                         ? OutlineInputBorder(

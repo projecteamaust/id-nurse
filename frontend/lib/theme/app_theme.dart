@@ -90,7 +90,9 @@ ThemeData buildAppTheme() {
       focusedBorder: inputBorder(AppColors.primary, 2),
       errorBorder: inputBorder(AppColors.error),
       focusedErrorBorder: inputBorder(AppColors.error, 2),
-      hintStyle: AppText.digitInput.copyWith(color: AppColors.muted),
+      // Placeholders use the normal text style (inputs inherit the body font in the prototype).
+      // DigitEntry sets its own wide-spaced hint (.digit-entry input).
+      hintStyle: AppText.bodyMuted,
     ),
     snackBarTheme: const SnackBarThemeData(
       backgroundColor: AppColors.toast,

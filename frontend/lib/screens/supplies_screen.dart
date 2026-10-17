@@ -171,6 +171,7 @@ class _SuppliesScreenState extends State<SuppliesScreen> {
           style: scale.body,
           decoration: InputDecoration(
             hintText: 'Search supplies',
+            hintStyle: scale.bodyMuted, // same size as the typed text, no extra letter spacing
             constraints: BoxConstraints(minHeight: scale.control(AppSpacing.searchFieldHeight)),
             contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: scale.size(12)),
           ),
