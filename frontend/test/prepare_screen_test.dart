@@ -6,6 +6,7 @@ import 'package:id_nurse/models/login_response.dart';
 import 'package:id_nurse/models/order.dart';
 import 'package:id_nurse/models/order_summary.dart';
 import 'package:id_nurse/models/patient.dart';
+import 'package:id_nurse/models/problem_report.dart';
 import 'package:id_nurse/models/user.dart';
 import 'package:id_nurse/services/api_service.dart';
 import 'package:id_nurse/services/mock_api_service.dart';
@@ -57,6 +58,13 @@ class _NoDemoApi implements ApiService {
   Future<Order> getOrder(int orderId) => inner.getOrder(orderId);
   @override
   Future<List<OrderSummary>> listOrders({int limit = 20}) => inner.listOrders(limit: limit);
+  @override
+  Future<ProblemReport> reportProblem(int orderId, {String? note}) => inner.reportProblem(orderId, note: note);
+  @override
+  Future<List<ProblemReport>> listProblemReports({ReportFilter status = ReportFilter.open}) =>
+      inner.listProblemReports(status: status);
+  @override
+  Future<ProblemReport> resolveProblemReport(int reportId) => inner.resolveProblemReport(reportId);
 }
 
 void main() {

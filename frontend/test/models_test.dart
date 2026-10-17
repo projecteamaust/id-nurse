@@ -6,6 +6,7 @@ import 'package:id_nurse/models/login_response.dart';
 import 'package:id_nurse/models/order.dart';
 import 'package:id_nurse/models/order_summary.dart';
 import 'package:id_nurse/models/patient.dart';
+import 'package:id_nurse/models/problem_report.dart';
 
 // The JSON examples below are copied from docs/api.md.
 // Each test parses one and checks that toJson gives back exactly the same JSON,
@@ -70,5 +71,28 @@ void main() {
     expect(OrderStatus.fromJson('PARTIAL'), OrderStatus.partial);
     expect(OrderStatus.done.isFinal && OrderStatus.partial.isFinal && OrderStatus.failed.isFinal, isTrue);
     expect(() => OrderStatus.fromJson('READY'), throwsFormatException);
+  });
+
+  test('ProblemReport matches the report object (open, then resolved)', () {
+    final open = _parse('''
+      { "id": 52, "order_id": 17, "status": "open", "note": "Drawer 2 looked jammed",
+        "nurse": { "employee_id": "48216", "name": "Maya Chen" },
+        "missing_items": [ { "item_id": 2, "name": "Adhesive dressing", "slot_number": 2, "qty_missing": 1 } ],
+        "created_at": "2026-10-16T08:47:03+03:00", "resolved_at": null, "resolved_by": null }
+    ''');
+    final report = ProblemReport.fromJson(open);
+    expect(report.status, ReportStatus.open);
+    expect(report.missingItems.single.qtyMissing, 1);
+    expect(report.toJson(), open);
+
+    final resolved = {
+      ...open,
+      'status': 'resolved',
+      'note': null,
+      'resolved_at': '2026-10-16T09:10:00+03:00',
+      'resolved_by': {'employee_id': '31082', 'name': 'Elena Ruiz'},
+    };
+    expect(ProblemReport.fromJson(resolved).toJson(), resolved);
+    expect(() => ReportStatus.fromJson('closed'), throwsFormatException);
   });
 }

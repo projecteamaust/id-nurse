@@ -6,11 +6,11 @@ import '../theme/app_colors.dart';
 import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text.dart';
-import '../widgets/app_alert.dart';
 import '../widgets/app_button.dart';
 import '../widgets/finished_order_loader.dart';
 import '../widgets/nurse_page.dart';
 import '../widgets/order_line_row.dart';
+import '../widgets/report_problem_dialog.dart';
 import '../widgets/success_badge.dart';
 
 /// Step 6: "Your items are ready" (prototype: CollectScreen in App.tsx).
@@ -19,6 +19,7 @@ import '../widgets/success_badge.dart';
 /// We have no door hardware, only a pickup box, so the prototype's "Open door" and the
 /// "door still open" reminder are left out. The screen lists what is in the box
 /// (lines with qty_dispensed > 0) and "I have collected my items" goes to Complete.
+/// For PARTIAL it names what was not dispensed and offers "Report problem".
 class CollectScreen extends StatelessWidget {
   final int orderId;
 
@@ -91,13 +92,10 @@ class CollectScreen extends StatelessWidget {
             ],
           ),
         ),
-        if (partial)
-          AppAlert(
-            key: const Key('supervisor-alert'),
-            message: 'Some items could not be dispensed. Please report the problem to your supervisor.',
-            scale: scale,
-            margin: EdgeInsets.only(top: scale.size(AppSpacing.gapL)),
-          ),
+        if (partial) ...[
+          SizedBox(height: scale.size(AppSpacing.gapL)),
+          ProblemReportPanel(order: order, scale: scale),
+        ],
       ],
     );
 

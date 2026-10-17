@@ -3,6 +3,7 @@ import '../models/login_response.dart';
 import '../models/order.dart';
 import '../models/order_summary.dart';
 import '../models/patient.dart';
+import '../models/problem_report.dart';
 import '../models/user.dart';
 
 /// Thrown when the API answers with an error.
@@ -69,4 +70,13 @@ abstract class ApiService {
 
   /// GET /orders?limit= (newest first)
   Future<List<OrderSummary>> listOrders({int limit = 20});
+
+  /// POST /orders/{id}/report -> report with status open (only PARTIAL or FAILED orders)
+  Future<ProblemReport> reportProblem(int orderId, {String? note});
+
+  /// GET /problem-reports?status= (supervisor, newest first)
+  Future<List<ProblemReport>> listProblemReports({ReportFilter status = ReportFilter.open});
+
+  /// POST /problem-reports/{id}/resolve -> report with status resolved (supervisor)
+  Future<ProblemReport> resolveProblemReport(int reportId);
 }

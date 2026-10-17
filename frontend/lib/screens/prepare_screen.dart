@@ -19,6 +19,7 @@ import '../widgets/app_button.dart';
 import '../widgets/cabinet_diagram.dart';
 import '../widgets/nurse_page.dart';
 import '../widgets/order_line_row.dart';
+import '../widgets/report_problem_dialog.dart';
 import '../widgets/status_chip.dart';
 import '../widgets/working_steps.dart';
 
@@ -283,7 +284,7 @@ class _PrepareScreenState extends State<PrepareScreen> {
         Text(
           partial
               ? 'Collect the items that were dispensed. The missing items are recorded.'
-              : 'Nothing was picked. Your request is recorded. Call maintenance or start a new request.',
+              : 'Nothing was picked. Your request is recorded. Report the problem or start a new request.',
           style: scale.bodyMuted,
         ),
       ],
@@ -311,15 +312,30 @@ class _PrepareScreenState extends State<PrepareScreen> {
           ),
         ),
         SizedBox(height: scale.size(AppSpacing.gapXxl)),
-        Align(
-          alignment: Alignment.centerRight,
-          child: AppButton(
-            label: partial ? 'Collect available items' : 'Start a new request',
-            onPressed: () => context.go(partial ? '/collect/${order.id}' : '/patient'),
-            height: scale.buttonHeight,
-            textStyle: scale.button,
+        if (partial)
+          Align(
+            alignment: Alignment.centerRight,
+            child: AppButton(
+              label: 'Collect available items',
+              onPressed: () => context.go('/collect/${order.id}'),
+              height: scale.buttonHeight,
+              textStyle: scale.button,
+            ),
+          )
+        else
+          // FAILED: name what is missing and offer "Report problem" (PARTIAL reports on Collect).
+          ProblemReportPanel(
+            order: order,
+            scale: scale,
+            actions: [
+              AppButton(
+                label: 'Start a new request',
+                onPressed: () => context.go('/patient'),
+                height: scale.buttonHeight,
+                textStyle: scale.button,
+              ),
+            ],
           ),
-        ),
       ],
     );
   }

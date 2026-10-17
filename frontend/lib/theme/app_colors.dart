@@ -39,6 +39,7 @@ class AppColors {
   static const pickupBox = Color(0xFFE6EDEC); // .door (closed), used for the pickup box
   static const pickupBoxBorder = Color(0xFF99AEAB);
   static const toast = Color(0xFF12302D);
+  static const modalBackdrop = Color(0x730A2320); // .modal-backdrop rgba(10,35,32,.45)
   static const adminSidebar = Color(0xFF102E2B);
   static const adminSidebarText = Color(0xFFB9CDCA);
 

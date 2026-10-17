@@ -84,7 +84,7 @@ class CompleteScreen extends StatelessWidget {
               Expanded(
                 child: AppAlert(
                   key: const Key('supervisor-alert'),
-                  message: 'Some items were not dispensed. Please report the problem to your supervisor.',
+                  message: 'Not dispensed: ${notDispensedText(order.items)}. Please report the problem to your supervisor.',
                   scale: scale,
                   margin: EdgeInsets.zero,
                 ),

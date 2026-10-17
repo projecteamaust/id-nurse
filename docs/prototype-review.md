@@ -87,7 +87,7 @@ Every screen after sign-in shows the same header: nurse name, ward ("Ward 4 · S
 | 13 | **Complete** | Green ✓, "REQUEST COMPLETE", "Your transaction is recorded". Receipt: Transaction ID, date and time, patient ID, nurse, items | "New request", "Back to home", "Sign out" | Data from `GET /orders/{id}` |
 | 14 | **Recent requests** | "My recent requests" / "Requests made during your recent shifts." Table: Date and time, Patient ID, Items, Status | "View", "Back" | `GET /orders` |
 | 15 | **Request detail** | "Request detail", transaction ID, receipt | "Back" | `GET /orders/{id}` |
-| 16 | **Report a problem** | "Report a problem" / "…The maintenance team will be notified." Problem type list: Item missing, Door will not open, Robot stopped, Wrong item received, Other. Field: "What happened?" | "Send report" (toast), "Cancel" | Missing (later) |
+| 16 | **Report a problem** | "Report a problem" / "…The maintenance team will be notified." Problem type list: Item missing, Door will not open, Robot stopped, Wrong item received, Other. Field: "What happened?" | "Send report" (toast), "Cancel" | *Added: `POST /orders/{id}/report`* (PARTIAL/FAILED only, optional note; no problem-type list) |
 | 17 | **Timeout** | Chip "Session ended", "Session timed out" / "You were signed out after 2 minutes of no activity." | "Identify yourself" | None (frontend timer) |
 
 ## 3. Admin console pages
@@ -131,7 +131,10 @@ Sign out button. The page header shows "ID NURSE ADMIN", the page title, and "Al
 
 **Missing endpoints**
 - List orders → *added: `GET /orders`.*
-- Report a problem / call maintenance / notify admin about out-of-stock items (later).
+- Report a problem → *added: `POST /orders/{id}/report`, `GET /problem-reports`, `POST /problem-reports/{id}/resolve`
+  (stored in `audit_log`). The supervisor dashboard shows open reports with "Mark resolved": an addition to Decision 5,
+  asked for by the team.*
+- Call maintenance / notify admin about out-of-stock items (later).
 - Door open/close and "I have collected" (no door hardware; frontend-only step).
 - Retrying a failed order (later).
 - Dashboard numbers, hourly chart, robot queue and position, pause/resume (later).

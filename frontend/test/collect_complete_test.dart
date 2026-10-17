@@ -137,7 +137,7 @@ void main() {
     expect(textIn(const Key('collect-list'), 'Sterile gauze pads'), findsOneWidget);
     expect(textIn(const Key('collect-list'), 'Adhesive dressing'), findsNothing);
     expect(
-      find.text('Some items could not be dispensed. Please report the problem to your supervisor.'),
+      find.text('Not dispensed: Adhesive dressing ×1. Please report the problem to your supervisor.'),
       findsOneWidget,
     );
 
@@ -149,7 +149,7 @@ void main() {
     expect(textIn(const Key('receipt-list'), '0 of 1'), findsOneWidget);
     expect(textIn(const Key('receipt-list'), 'Not dispensed'), findsOneWidget);
     expect(
-      find.text('Some items were not dispensed. Please report the problem to your supervisor.'),
+      find.text('Not dispensed: Adhesive dressing ×1. Please report the problem to your supervisor.'),
       findsOneWidget,
     );
   });

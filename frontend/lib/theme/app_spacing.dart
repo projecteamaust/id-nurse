@@ -106,4 +106,8 @@ class AppSpacing {
   static const double completeHeadGap = 18; // .complete-head
   static const double receiptCellPaddingX = 20; // .receipt-grid > div
   static const double receiptCellPaddingY = 16;
+  // Dialogs (.modal)
+  static const double modalMaxWidth = 540;
+  static const double modalPadding = 26;
+  static const double modalHeadGap = 18; // .modal-head margin-bottom
 }

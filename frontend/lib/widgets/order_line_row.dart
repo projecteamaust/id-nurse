@@ -12,6 +12,13 @@ import 'status_chip.dart';
 /// "2 units", "1 unit".
 String unitsLabel(int n) => '$n ${n == 1 ? 'unit' : 'units'}';
 
+/// The lines that were not (fully) dispensed, with the missing units:
+/// "Adhesive dressing ×1, Procedure mask ×2". Empty when nothing is missing.
+String notDispensedText(Iterable<OrderItem> lines) => [
+      for (final l in lines)
+        if (l.qtyDispensed < l.qtyRequested) '${l.name} ×${l.qtyRequested - l.qtyDispensed}',
+    ].join(', ');
+
 /// Result chip for one order line: Dispensed (all), Partly (some) or Not dispensed (none).
 /// Used by the Prepare result and the Complete receipt so both use the same words.
 StatusChip dispenseResultChip(OrderItem line, AppScale scale) {

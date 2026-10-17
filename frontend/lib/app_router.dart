@@ -7,21 +7,28 @@ import 'screens/login_screen.dart';
 import 'screens/patient_screen.dart';
 import 'screens/prepare_screen.dart';
 import 'screens/review_screen.dart';
+import 'screens/supervisor_login_screen.dart';
+import 'screens/supervisor_screen.dart';
 import 'screens/supplies_screen.dart';
 import 'services/auth_state.dart';
 
-/// All screens and their URLs. Signed-out users always land on /login.
+/// All screens and their URLs. Signed-out users always land on /login
+/// (or stay on /supervisor/login).
 GoRouter buildRouter(AuthState auth) {
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: auth, // re-check the redirect when someone signs in or out
     redirect: (context, state) {
-      final onLogin = state.matchedLocation == '/login';
+      final onLogin = state.matchedLocation == '/login' || state.matchedLocation == '/supervisor/login';
       if (!auth.isSignedIn && !onLogin) return '/login';
+      // The dashboard is for supervisors only; a nurse goes back to her own start.
+      if (state.matchedLocation == '/supervisor' && auth.user?.isSupervisor != true) return '/patient';
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(path: '/supervisor/login', builder: (context, state) => const SupervisorLoginScreen()),
+      GoRoute(path: '/supervisor', builder: (context, state) => const SupervisorScreen()),
       GoRoute(path: '/patient', builder: (context, state) => const PatientScreen()),
       GoRoute(path: '/supplies', builder: (context, state) => const SuppliesScreen()),
       GoRoute(path: '/review', builder: (context, state) => const ReviewScreen()),

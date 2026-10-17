@@ -15,6 +15,9 @@ class AppConfig {
   /// MAX_QTY_PER_ITEM (default 30, docs/api.md); the server rejects more with 422.
   static const maxQtyPerItem = 30;
 
+  /// Longest note on a problem report (docs/api.md: at most 200 characters, otherwise 422).
+  static const maxReportNoteLength = 200;
+
   /// How often the Prepare screen asks GET /orders/{id} for progress (rule: every 1 to 2 s).
   static const pollInterval = Duration(milliseconds: 1500);
 

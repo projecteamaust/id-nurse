@@ -8,6 +8,7 @@ import '../models/login_response.dart';
 import '../models/order.dart';
 import '../models/order_summary.dart';
 import '../models/patient.dart';
+import '../models/problem_report.dart';
 import '../models/user.dart';
 import 'api_service.dart';
 import 'demo_controls.dart';
@@ -72,6 +73,11 @@ class MockApiService implements ApiService, DemoControls {
   final Map<int, Map<String, dynamic>> _orders = {};
   final Map<int, Timer> _robotTimers = {};
   int _nextOrderId = 1;
+
+  /// audit_log rows. The mock only writes problem reports here (the other audited
+  /// actions matter only in the real backend).
+  final List<Map<String, dynamic>> _auditLog = [];
+  int _nextAuditId = 1;
   Map<String, dynamic>? _currentUser;
 
   // ---------------------------------------------------------------- auth
@@ -218,6 +224,110 @@ class MockApiService implements ApiService, DemoControls {
     }).toList();
   }
 
+  // ---------------------------------------------------------------- problem reports
+  // Stored like the backend stores them (docs/api.md): entries in an append-only audit log.
+  // "problem_reported" is the report; "problem_resolved" marks it resolved. Status is worked out.
+
+  /// Longest note the API accepts (docs/api.md).
+  static const maxReportNoteLength = 200;
+
+  @override
+  Future<ProblemReport> reportProblem(int orderId, {String? note}) async {
+    await _delay();
+    final user = _requireUser();
+    final order = _requireVisibleOrder(orderId);
+    final text = (note == null || note.trim().isEmpty) ? null : note.trim();
+    if (text != null && text.length > maxReportNoteLength) {
+      throw const ApiException(422, 'Note must be at most $maxReportNoteLength characters');
+    }
+    if (order['status'] != OrderStatus.partial.value && order['status'] != OrderStatus.failed.value) {
+      throw ApiException(409, 'Order is ${order['status']}, not PARTIAL or FAILED');
+    }
+    final alreadyOpen = _auditLog.any((e) =>
+        e['action'] == 'problem_reported' && e['details']['order_id'] == orderId && _resolvedEntry(e['id']) == null);
+    if (alreadyOpen) throw const ApiException(409, 'This order already has an open report');
+
+    final lines = (order['items'] as List).cast<Map<String, dynamic>>();
+    final entry = _writeAudit(user, 'problem_reported', {
+      'order_id': orderId,
+      'note': text,
+      'missing_items': [
+        for (final l in lines)
+          if ((l['qty_dispensed'] as int) < (l['qty_requested'] as int))
+            {
+              'item_id': l['item_id'],
+              'name': l['name'],
+              'slot_number': l['slot_number'],
+              'qty_missing': (l['qty_requested'] as int) - (l['qty_dispensed'] as int),
+            },
+      ],
+    });
+    return _reportFrom(entry);
+  }
+
+  @override
+  Future<List<ProblemReport>> listProblemReports({ReportFilter status = ReportFilter.open}) async {
+    await _delay();
+    _requireSupervisor();
+    return _auditLog.reversed // newest first
+        .where((e) => e['action'] == 'problem_reported')
+        .map(_reportFrom)
+        .where((r) => status == ReportFilter.all || r.status.value == status.value)
+        .toList();
+  }
+
+  @override
+  Future<ProblemReport> resolveProblemReport(int reportId) async {
+    await _delay();
+    final user = _requireSupervisor();
+    final entry = _auditLog.where((e) => e['id'] == reportId && e['action'] == 'problem_reported').firstOrNull;
+    if (entry == null) throw const ApiException(404, 'Report not found');
+    if (_resolvedEntry(reportId) != null) throw const ApiException(409, 'Report is already resolved');
+    _writeAudit(user, 'problem_resolved', {'report_id': reportId});
+    return _reportFrom(entry);
+  }
+
+  /// The "problem_resolved" entry for this report, or null while it is open.
+  Map<String, dynamic>? _resolvedEntry(int reportId) => _auditLog
+      .where((e) => e['action'] == 'problem_resolved' && e['details']['report_id'] == reportId)
+      .firstOrNull;
+
+  /// Report JSON as the API returns it, built from its audit entries.
+  ProblemReport _reportFrom(Map<String, dynamic> entry) {
+    final resolved = _resolvedEntry(entry['id'] as int);
+    final details = entry['details'] as Map<String, dynamic>;
+    return ProblemReport.fromJson({
+      'id': entry['id'],
+      'order_id': details['order_id'],
+      'status': resolved == null ? ReportStatus.open.value : ReportStatus.resolved.value,
+      'note': details['note'],
+      'nurse': _userRef(entry['actor'] as int),
+      'missing_items': details['missing_items'],
+      'created_at': entry['timestamp'],
+      'resolved_at': resolved?['timestamp'],
+      'resolved_by': resolved == null ? null : _userRef(resolved['actor'] as int),
+    });
+  }
+
+  /// `{employee_id, name}` of a user id.
+  Map<String, dynamic> _userRef(int userId) {
+    final user = _users.firstWhere((u) => u['id'] == userId);
+    return {'employee_id': user['employee_id'], 'name': user['name']};
+  }
+
+  /// Adds one audit_log row (id, timestamp, actor, action, details) and returns it.
+  Map<String, dynamic> _writeAudit(Map<String, dynamic> user, String action, Map<String, dynamic> details) {
+    final entry = {
+      'id': _nextAuditId++,
+      'timestamp': _now(),
+      'actor': user['id'],
+      'action': action,
+      'details': details,
+    };
+    _auditLog.add(entry);
+    return entry;
+  }
+
   /// Stops the fake robot timers (used by tests).
   void dispose() {
     for (final timer in _robotTimers.values) {
@@ -284,6 +394,12 @@ class MockApiService implements ApiService, DemoControls {
   Map<String, dynamic> _requireUser() {
     final user = _currentUser;
     if (user == null) throw const ApiException(401, 'Not signed in');
+    return user;
+  }
+
+  Map<String, dynamic> _requireSupervisor() {
+    final user = _requireUser();
+    if (user['role'] != 'supervisor') throw const ApiException(403, 'Supervisors only');
     return user;
   }
 

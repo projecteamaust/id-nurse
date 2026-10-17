@@ -97,12 +97,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showAdminNotReady() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Supervisor sign in comes in a later step.')),
-    );
-  }
-
   /// Login stacks heading, tabs, error and keypad in one column, more than the nurse
   /// screens, so its spacing shrinks sooner: it is the prototype size only at about
   /// 1130 px window height (1000 + 80 + 48) and 0.6x at 1280x720, which is what is needed
@@ -115,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return ScaledPage(
-      topBar: TopBar(onAdmin: _showAdminNotReady),
+      topBar: TopBar(onAdmin: () => context.go('/supervisor/login')),
       cardMaxWidth: AppSpacing.narrowCardMaxWidth,
       cardPaddingX: AppSpacing.authCardPaddingX,
       cardPaddingY: AppSpacing.authCardPaddingY,

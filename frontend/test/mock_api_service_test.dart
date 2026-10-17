@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:id_nurse/models/order.dart';
+import 'package:id_nurse/models/problem_report.dart';
 import 'package:id_nurse/services/api_service.dart';
 import 'package:id_nurse/services/mock_api_service.dart';
 
@@ -202,6 +203,102 @@ void main() {
       expect(list.first.totalUnits, 7);
       expect(list.first.nurseName, 'Maya Chen');
       expect(await api.listOrders(limit: 1), hasLength(1));
+    });
+  });
+
+  group('problem reports', () {
+    Future<void> signInSupervisor() =>
+        api.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
+
+    /// A PARTIAL order of the signed-in user: 2 gauze picked, 1 dressing missing.
+    Future<Order> partialOrder() async {
+      api.failPicksAfterUnits = 2;
+      final order = await api.createOrder('284913', const [
+        OrderLineRequest(itemId: 1, qty: 2),
+        OrderLineRequest(itemId: 2, qty: 1),
+      ]);
+      await api.approveOrder(order.id);
+      return waitUntilFinal(order.id);
+    }
+
+    setUp(signInNurse);
+
+    test('a report lists the missing items, the nurse and the note; status is open', () async {
+      final order = await partialOrder();
+      final report = await api.reportProblem(order.id, note: '  Drawer 2 looked jammed  ');
+      expect(report.orderId, order.id);
+      expect(report.status, ReportStatus.open);
+      expect(report.note, 'Drawer 2 looked jammed');
+      expect(report.nurse.employeeId, '48216');
+      expect(report.missingItems.map((m) => (m.name, m.qtyMissing)), [('Adhesive dressing', 1)]);
+      expect(report.resolvedAt, isNull);
+      expect(report.resolvedBy, isNull);
+    });
+
+    test('the note is optional; empty means null; over 200 characters gives 422', () async {
+      final order = await partialOrder();
+      await expectLater(api.reportProblem(order.id, note: 'x' * 201), _apiError(422));
+      expect((await api.reportProblem(order.id, note: '   ')).note, isNull);
+    });
+
+    test('a FAILED order lists every line as missing', () async {
+      api.failPicksAfterUnits = 0;
+      final order = await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 3)]);
+      await api.approveOrder(order.id);
+      await waitUntilFinal(order.id);
+      final report = await api.reportProblem(order.id);
+      expect(report.missingItems.single.qtyMissing, 3);
+    });
+
+    test('only PARTIAL or FAILED orders can be reported (409)', () async {
+      final order = await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]);
+      await expectLater(api.reportProblem(order.id), _apiError(409)); // PENDING
+      await api.approveOrder(order.id);
+      await waitUntilFinal(order.id); // DONE
+      await expectLater(api.reportProblem(order.id), _apiError(409));
+      await expectLater(api.reportProblem(999), _apiError(404));
+    });
+
+    test('one open report per order (409); a new one is allowed once it is resolved', () async {
+      final order = await partialOrder();
+      final first = await api.reportProblem(order.id);
+      await expectLater(api.reportProblem(order.id), _apiError(409));
+      await signInSupervisor();
+      await api.resolveProblemReport(first.id);
+      await signInNurse();
+      expect((await api.reportProblem(order.id)).status, ReportStatus.open);
+    });
+
+    test('a nurse cannot report another nurse\'s order (403)', () async {
+      await signInSupervisor();
+      final order = await partialOrder();
+      await signInNurse();
+      await expectLater(api.reportProblem(order.id), _apiError(403));
+    });
+
+    test('listing and resolving are for supervisors only (403)', () async {
+      final report = await api.reportProblem((await partialOrder()).id);
+      await expectLater(api.listProblemReports(), _apiError(403));
+      await expectLater(api.resolveProblemReport(report.id), _apiError(403));
+    });
+
+    test('supervisor lists open reports newest first, resolves one; it leaves the open list', () async {
+      final first = await api.reportProblem((await partialOrder()).id, note: 'first');
+      final second = await api.reportProblem((await partialOrder()).id, note: 'second');
+      await signInSupervisor();
+      expect((await api.listProblemReports()).map((r) => r.id), [second.id, first.id]);
+
+      final resolved = await api.resolveProblemReport(first.id);
+      expect(resolved.status, ReportStatus.resolved);
+      expect(resolved.resolvedAt, isNotNull);
+      expect(resolved.resolvedBy?.employeeId, '31082');
+      expect(resolved.nurse.employeeId, '48216'); // still the nurse who sent it
+
+      expect((await api.listProblemReports()).map((r) => r.id), [second.id]);
+      expect((await api.listProblemReports(status: ReportFilter.resolved)).map((r) => r.id), [first.id]);
+      expect(await api.listProblemReports(status: ReportFilter.all), hasLength(2));
+      await expectLater(api.resolveProblemReport(first.id), _apiError(409));
+      await expectLater(api.resolveProblemReport(999), _apiError(404));
     });
   });
 }

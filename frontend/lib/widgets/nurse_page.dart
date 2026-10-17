@@ -8,12 +8,12 @@ import '../theme/app_scale.dart';
 import 'scaled_page.dart';
 import 'top_bar.dart';
 
-/// Layout shared by every signed-in nurse screen (prototype: NurseShell + .main-card):
-/// top bar with the nurse and "Sign out", step tracker, then a [ScaledPage] card
-/// that fills the rest of the window.
+/// Layout shared by every signed-in screen (prototype: NurseShell + .main-card):
+/// top bar with the user and "Sign out", the nurse step tracker, then a [ScaledPage] card
+/// that fills the rest of the window. The supervisor dashboard passes no [step].
 class NursePage extends StatelessWidget {
-  /// Index in [StepTracker.steps] of this screen.
-  final int step;
+  /// Index in [StepTracker.steps] of this screen, or null for no step tracker (supervisor).
+  final int? step;
 
   /// See [ScaledPage.withCard].
   final bool withCard;
@@ -26,7 +26,7 @@ class NursePage extends StatelessWidget {
 
   const NursePage({
     super.key,
-    required this.step,
+    this.step,
     this.withCard = true,
     this.spacingReferenceHeight = AppScale.referenceHeight,
     required this.builder,
