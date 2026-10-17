@@ -136,6 +136,7 @@ frontend/lib/
 6. Keep the JWT in memory and send it as a Bearer token (real service only).
 7. Order status screen polls every 1 to 2 seconds until the status is final (DONE, PARTIAL, or FAILED).
 8. Run `flutter analyze` and `flutter test` before saying a task is done.
+9. Every screen fits the window without scrolling and scales to the available height.
 
 ### Screens (in order of building)
 1. Login (nurse: scan card or enter employee ID; supervisor: employee ID + password)

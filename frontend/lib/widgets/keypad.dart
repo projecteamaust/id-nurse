@@ -5,6 +5,10 @@ import '../theme/app_text.dart';
 import 'app_button.dart';
 
 /// Number keypad: 1-9, Clear, 0, Back (.keypad). 3 columns, 64 px buttons.
+///
+/// With [fill] the buttons share the height the keypad is given (between
+/// [AppSpacing.keypadButtonMinHeight] and [AppSpacing.keypadButtonMaxHeight])
+/// instead of using [buttonHeight].
 class Keypad extends StatelessWidget {
   final ValueChanged<String> onDigit;
   final VoidCallback onClear;
@@ -12,6 +16,8 @@ class Keypad extends StatelessWidget {
   final bool enabled;
   final double buttonHeight;
   final double gap;
+  final bool fill;
+  final TextStyle textStyle;
 
   const Keypad({
     super.key,
@@ -21,15 +27,28 @@ class Keypad extends StatelessWidget {
     this.enabled = true,
     this.buttonHeight = AppSpacing.keypadButtonHeight,
     this.gap = AppSpacing.keypadGap,
+    this.fill = false,
+    this.textStyle = AppText.keypadButton,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (!fill) return _buildKeys(buttonHeight);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = ((constraints.maxHeight - 3 * gap) / 4)
+            .clamp(AppSpacing.keypadButtonMinHeight, AppSpacing.keypadButtonMaxHeight);
+        return _buildKeys(height);
+      },
+    );
+  }
+
+  Widget _buildKeys(double height) {
     Widget key(String label, VoidCallback action) => AppButton(
           label: label,
           variant: AppButtonVariant.secondary,
-          height: buttonHeight,
-          textStyle: AppText.keypadButton,
+          height: height,
+          textStyle: textStyle,
           expand: true,
           onPressed: enabled ? action : null,
         );
@@ -51,6 +70,7 @@ class Keypad extends StatelessWidget {
     return Semantics(
       label: 'Numeric keypad',
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           for (final digits in rows) ...[
             row([for (final d in digits) key(d, () => onDigit(d))]),

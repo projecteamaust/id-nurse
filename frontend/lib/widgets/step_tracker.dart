@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text.dart';
 
 /// The 48 px progress bar under the top bar (.step-tracker).
 /// Steps up to and including [current] are teal; later steps are grey.
+/// The bar keeps its 48 px height; only the step names scale.
 class StepTracker extends StatelessWidget {
   static const steps = ['Identify', 'Patient', 'Supplies', 'Review', 'Prepare', 'Collect', 'Complete'];
 
   /// Index in [steps] of the screen being shown (0 = Identify).
   final int current;
+  final AppScale scale;
 
-  const StepTracker({super.key, required this.current});
+  const StepTracker({super.key, required this.current, this.scale = AppScale.none});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +30,7 @@ class StepTracker extends StatelessWidget {
       child: Row(
         children: [
           for (var i = 0; i < steps.length; i++)
-            Expanded(child: _Step(label: steps[i], active: i <= current, last: i == steps.length - 1)),
+            Expanded(child: _Step(label: steps[i], active: i <= current, last: i == steps.length - 1, scale: scale)),
         ],
       ),
     );
@@ -39,8 +42,9 @@ class _Step extends StatelessWidget {
   final String label;
   final bool active;
   final bool last;
+  final AppScale scale;
 
-  const _Step({required this.label, required this.active, required this.last});
+  const _Step({required this.label, required this.active, required this.last, required this.scale});
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +66,9 @@ class _Step extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: active ? AppText.step.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600) : AppText.step,
+            style: scale.text(
+              active ? AppText.step.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600) : AppText.step,
+            ),
           ),
         ),
         if (!last) ...[

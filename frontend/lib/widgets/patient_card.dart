@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../models/patient.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text.dart';
 
 /// Patient summary box (.patient-card): initials, name, file number and age, room, diagnosis code.
 /// Used on the Patient screen now and on the Review screen later.
 class PatientCard extends StatelessWidget {
   final Patient patient;
+  final AppScale scale;
 
-  const PatientCard({super.key, required this.patient});
+  const PatientCard({super.key, required this.patient, this.scale = AppScale.none});
 
   /// "Alex Morgan" -> "AM"
   String get _initials => patient.name
@@ -23,23 +24,26 @@ class PatientCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatar = Container(
-      width: AppSpacing.avatarSize,
-      height: AppSpacing.avatarSize,
+      width: scale.size(AppSpacing.avatarSize),
+      height: scale.size(AppSpacing.avatarSize),
       alignment: Alignment.center,
       decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-      child: Text(_initials, style: AppText.strong.copyWith(color: AppColors.primary)),
+      child: Text(_initials, style: scale.strong.copyWith(color: AppColors.primary)),
     );
     final name = _Field(
       label: 'Patient',
       value: patient.name,
       detail: 'File ${patient.fileNumber} · Age ${patient.age}',
+      scale: scale,
     );
-    final room = _Field(label: 'Room', value: patient.room);
-    final diagnosis = _Field(label: 'Diagnosis code', value: patient.diagnosisCode);
+    final room = _Field(label: 'Room', value: patient.room, scale: scale);
+    final diagnosis = _Field(label: 'Diagnosis code', value: patient.diagnosisCode, scale: scale);
+    final gap = scale.size(AppSpacing.patientCardGap);
+    final narrowGap = scale.size(AppSpacing.gapL);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.patientCardPadding),
+      padding: EdgeInsets.all(scale.size(AppSpacing.patientCardPadding)),
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
         border: Border.all(color: AppColors.border),
@@ -52,11 +56,11 @@ class PatientCard extends StatelessWidget {
             return Row(
               children: [
                 avatar,
-                const SizedBox(width: AppSpacing.patientCardGap),
+                SizedBox(width: gap),
                 Expanded(flex: 14, child: name),
-                const SizedBox(width: AppSpacing.patientCardGap),
+                SizedBox(width: gap),
                 Expanded(flex: 7, child: room),
-                const SizedBox(width: AppSpacing.patientCardGap),
+                SizedBox(width: gap),
                 Expanded(flex: 10, child: diagnosis),
               ],
             );
@@ -65,11 +69,11 @@ class PatientCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [avatar, const SizedBox(width: AppSpacing.gapL), Expanded(child: name)]),
-              const SizedBox(height: AppSpacing.gapL),
+              Row(children: [avatar, SizedBox(width: narrowGap), Expanded(child: name)]),
+              SizedBox(height: narrowGap),
               Row(children: [
                 Expanded(child: room),
-                const SizedBox(width: AppSpacing.gapL),
+                SizedBox(width: narrowGap),
                 Expanded(child: diagnosis),
               ]),
             ],
@@ -85,20 +89,21 @@ class _Field extends StatelessWidget {
   final String label;
   final String value;
   final String? detail;
+  final AppScale scale;
 
-  const _Field({required this.label, required this.value, this.detail});
+  const _Field({required this.label, required this.value, this.detail, required this.scale});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppText.small),
-        const SizedBox(height: 3),
-        Text(value, style: AppText.strong),
+        Text(label, style: scale.small),
+        SizedBox(height: scale.size(3)),
+        Text(value, style: scale.strong),
         if (detail != null) ...[
-          const SizedBox(height: 3),
-          Text(detail!, style: AppText.small),
+          SizedBox(height: scale.size(3)),
+          Text(detail!, style: scale.small),
         ],
       ],
     );

@@ -3,16 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../models/patient.dart';
 import '../services/api_service.dart';
-import '../services/auth_state.dart';
-import '../theme/app_colors.dart';
+import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text.dart';
 import '../widgets/app_alert.dart';
 import '../widgets/app_button.dart';
 import '../widgets/digit_entry.dart';
+import '../widgets/nurse_page.dart';
 import '../widgets/patient_card.dart';
-import '../widgets/step_tracker.dart';
-import '../widgets/top_bar.dart';
 
 /// Step 2: "Which patient?" (prototype: screens "patient" and "confirm-patient" in App.tsx).
 /// First the nurse types the file number on the keypad; after a successful lookup the
@@ -93,87 +90,42 @@ class _PatientScreenState extends State<PatientScreen> {
     );
   }
 
-  void _signOut() {
-    context.read<ApiService>().signOut();
-    context.read<AuthState>().signOut(); // the router then sends us to /login
-  }
-
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthState>().user;
-    if (user == null) return const SizedBox.shrink(); // the router sends us back to /login
-
-    final narrow = MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint;
-    return Scaffold(
-      body: Column(
-        children: [
-          TopBar(user: user, onSignOut: _signOut),
-          const StepTracker(current: 1),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Short window (e.g. 1280x720): smaller paddings and keypad so it fits without scrolling.
-                final short = constraints.maxHeight < AppSpacing.compactHeightBreakpoint;
-                final pagePaddingY = short ? AppSpacing.pagePaddingYShort : AppSpacing.pagePaddingY;
-                return SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: narrow ? AppSpacing.mobileGutter : AppSpacing.pagePaddingX,
-                    vertical: pagePaddingY,
-                  ),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: _buildCard(narrow: narrow, short: short),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// The white main card (.main-card).
-  Widget _buildCard({required bool narrow, required bool short}) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: AppSpacing.mainCardMaxWidth),
-      padding: EdgeInsets.all(narrow ? AppSpacing.gapXxl : AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-        boxShadow: const [BoxShadow(color: AppColors.cardShadow, blurRadius: 20, offset: Offset(0, 6))],
-      ),
-      child: _patient == null ? _buildEntry(short: short) : _buildConfirm(_patient!),
+    return NursePage(
+      step: 1,
+      builder: (context, scale) => _patient == null ? _buildEntry(scale) : _buildConfirm(_patient!, scale),
     );
   }
 
   /// Heading + muted subtitle (.heading-group).
-  Widget _heading(String title, String subtitle) {
+  Widget _heading(String title, String subtitle, AppScale scale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: AppText.h1),
-        const SizedBox(height: AppSpacing.gapS),
-        Text(subtitle, style: AppText.bodyMuted),
+        Text(title, style: scale.h1),
+        SizedBox(height: scale.size(AppSpacing.gapS)),
+        Text(subtitle, style: scale.bodyMuted),
       ],
     );
   }
 
-  /// "Which patient?": text on the left, keypad on the right (.two-col-entry).
-  /// Stacks into one column when the card is narrow.
-  Widget _buildEntry({required bool short}) {
+  /// "Which patient?": text on the left, keypad filling the right (.two-col-entry).
+  /// Stacks into one column when the card is narrow; the keypad then fills the rest.
+  Widget _buildEntry(AppScale scale) {
     final info = Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _heading('Which patient?', 'Enter the patient file number.'),
-        const SizedBox(height: AppSpacing.gapS),
-        const AppAlert(
+        _heading('Which patient?', 'Enter the patient file number.', scale),
+        SizedBox(height: scale.size(AppSpacing.gapS)),
+        AppAlert(
           message: 'Patient details are used only for this supply request.',
           tone: AlertTone.success,
+          scale: scale,
+          margin: EdgeInsets.symmetric(vertical: scale.size(AppSpacing.gapL)),
         ),
-        if (_error != null)
-          AppAlert(message: _error!, tone: AlertTone.error, margin: EdgeInsets.zero),
+        if (_error != null) AppAlert(message: _error!, tone: AlertTone.error, scale: scale, margin: EdgeInsets.zero),
       ],
     );
     final entry = DigitEntry(
@@ -184,7 +136,7 @@ class _PatientScreenState extends State<PatientScreen> {
       buttonLabel: _busy ? 'Finding patient…' : 'Find patient',
       hasError: _error != null,
       busy: _busy,
-      dense: short,
+      scale: scale,
       onSubmit: _findPatient,
     );
 
@@ -193,14 +145,14 @@ class _PatientScreenState extends State<PatientScreen> {
         if (constraints.maxWidth < AppSpacing.twoColBreakpoint) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [info, const SizedBox(height: AppSpacing.gapXxl), entry],
+            children: [info, SizedBox(height: scale.size(AppSpacing.gapXxl)), Expanded(child: entry)],
           );
         }
         return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: info),
-            const SizedBox(width: AppSpacing.twoColGap),
+            Expanded(child: Align(alignment: Alignment.topLeft, child: info)),
+            SizedBox(width: scale.size(AppSpacing.twoColGap)),
             Expanded(child: entry),
           ],
         );
@@ -208,21 +160,33 @@ class _PatientScreenState extends State<PatientScreen> {
     );
   }
 
-  /// "Is this the right patient?": patient card + confirm buttons.
-  Widget _buildConfirm(Patient patient) {
+  /// "Is this the right patient?": patient card + confirm buttons, at the top of the card.
+  Widget _buildConfirm(Patient patient, AppScale scale) {
+    final gap = scale.size(AppSpacing.gapXxl);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _heading('Is this the right patient?', 'Check the patient details before selecting supplies.'),
-        const SizedBox(height: AppSpacing.gapXxl),
-        PatientCard(patient: patient),
-        const SizedBox(height: AppSpacing.gapXxl),
+        _heading('Is this the right patient?', 'Check the patient details before selecting supplies.', scale),
+        SizedBox(height: gap),
+        PatientCard(patient: patient, scale: scale),
+        SizedBox(height: gap),
         Wrap(
-          spacing: AppSpacing.gapM,
-          runSpacing: AppSpacing.gapM,
+          spacing: scale.size(AppSpacing.gapM),
+          runSpacing: scale.size(AppSpacing.gapM),
           children: [
-            AppButton(label: 'Yes, select supplies', onPressed: _showSuppliesNotReady),
-            AppButton(label: 'No, enter again', variant: AppButtonVariant.secondary, onPressed: _enterAgain),
+            AppButton(
+              label: 'Yes, select supplies',
+              onPressed: _showSuppliesNotReady,
+              height: scale.buttonHeight,
+              textStyle: scale.button,
+            ),
+            AppButton(
+              label: 'No, enter again',
+              variant: AppButtonVariant.secondary,
+              onPressed: _enterAgain,
+              height: scale.buttonHeight,
+              textStyle: scale.button,
+            ),
           ],
         ),
       ],

@@ -116,24 +116,59 @@ void main() {
     expect(find.text('Identify yourself'), findsOneWidget);
   });
 
-  group('fits on short screens without scrolling', () {
-    double pageScrollExtent(WidgetTester tester) => tester
-        .state<ScrollableState>(find
-            .descendant(of: find.byType(SingleChildScrollView), matching: find.byType(Scrollable))
-            .first)
-        .position
-        .maxScrollExtent;
+  group('fills the window without scrolling', () {
+    const sizes = [Size(1280, 720), Size(1366, 768), Size(1280, 800), Size(1920, 1080)];
 
-    for (final size in const [Size(1280, 720), Size(1280, 800)]) {
-      testWidgets('${size.width.toInt()}x${size.height.toInt()} with error', (tester) async {
+    for (final size in sizes) {
+      final label = '${size.width.toInt()}x${size.height.toInt()}';
+
+      testWidgets('$label entry with error', (tester) async {
         await openPatientScreen(tester, size: size);
         await findPatient(tester, '999999');
         expect(find.textContaining('No patient with this file number'), findsOneWidget);
+
+        // No page scroll view, and the card reaches down to the bottom of the window
+        // (only the page padding, at most 28 x 1.25 = 35 px, is left below it).
+        expect(find.byType(SingleChildScrollView), findsNothing);
+        final card = tester.getRect(find.byKey(const Key('nurse-page-card')));
+        expect(card.bottom, greaterThanOrEqualTo(size.height - 36));
+        expect(card.bottom, lessThanOrEqualTo(size.height));
+
         final button = tester.getRect(find.widgetWithText(FilledButton, 'Find patient'));
+        expect(button.bottom, lessThanOrEqualTo(card.bottom));
+      });
+
+      testWidgets('$label confirm', (tester) async {
+        await openPatientScreen(tester, size: size);
+        await findPatient(tester, '284913');
+        expect(find.byType(SingleChildScrollView), findsNothing);
+        final button = tester.getRect(find.widgetWithText(OutlinedButton, 'No, enter again'));
         expect(button.bottom, lessThanOrEqualTo(size.height));
-        expect(pageScrollExtent(tester), 0);
       });
     }
+
+    testWidgets('keypad and heading are bigger on a tall window than on a short one', (tester) async {
+      Future<(double, double)> measure(Size size) async {
+        await openPatientScreen(tester, size: size);
+        final key = tester.getSize(find.widgetWithText(OutlinedButton, '5')).height;
+        final heading = tester.getSize(find.text('Which patient?')).height;
+        // Sign out so the next openPatientScreen starts from the login screen again.
+        await tester.tap(find.text('Sign out'));
+        await tester.pumpAndSettle();
+        return (key, heading);
+      }
+
+      final (shortKey, shortHeading) = await measure(const Size(1280, 720));
+      final (tallKey, tallHeading) = await measure(const Size(1920, 1080));
+      expect(tallKey, greaterThan(shortKey));
+      expect(tallHeading, greaterThan(shortHeading));
+      expect(tallKey, lessThanOrEqualTo(96)); // upper limit
+    });
+  });
+
+  testWidgets('very small window scrolls instead of overflowing', (tester) async {
+    await openPatientScreen(tester, size: const Size(1024, 560));
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
   });
 
   testWidgets('narrow tablet portrait stacks the layout without overflow', (tester) async {

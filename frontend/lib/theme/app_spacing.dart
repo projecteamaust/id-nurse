@@ -63,6 +63,10 @@ class AppSpacing {
   static const double tabHeightShort = 48;
   static const double keypadButtonHeightShort = 48; // Flutter's minimum touch target size
   static const double keypadGapShort = 6;
+
+  // Keypad in "fill" mode: buttons share the free height, within these limits
+  static const double keypadButtonMinHeight = 48; // Flutter's minimum touch target size
+  static const double keypadButtonMaxHeight = 96;
   static const double fieldPaddingY = 14;
   static const double fieldPaddingYShort = 8;
 }
