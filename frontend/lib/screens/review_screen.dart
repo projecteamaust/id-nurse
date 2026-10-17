@@ -1,22 +1,16 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_service.dart';
 import '../services/order_draft.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_text.dart';
 import '../widgets/app_alert.dart';
 import '../widgets/app_button.dart';
 import '../widgets/nurse_page.dart';
+import '../widgets/order_line_row.dart';
 import '../widgets/patient_card.dart';
-
-/// "2 units", "1 unit".
-String _units(int n) => '$n ${n == 1 ? 'unit' : 'units'}';
 
 /// Step 4: "Review your request" (prototype: screen "review" in App.tsx).
 /// Shows the patient and the chosen supplies from [OrderDraft]. "Authorize request"
@@ -45,11 +39,15 @@ class _ReviewScreenState extends State<ReviewScreen> {
   /// approves this order, so the nurse never creates the same order twice.
   int? _pendingOrderId;
 
+  /// True once the order is approved and we are on our way to Prepare. Clearing the draft
+  /// rebuilds this screen before the route has changed; without this flag the "empty
+  /// draft" redirect below would send the nurse to /patient instead of /prepare.
+  bool _submitted = false;
+
   Future<void> _authorize() async {
     if (_busy) return;
     final api = context.read<ApiService>();
     final draft = context.read<OrderDraft>();
-    final messenger = ScaffoldMessenger.of(context);
     setState(() {
       _busy = true;
       _error = null;
@@ -67,11 +65,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
       await api.approveOrder(orderId);
       if (!mounted) return;
 
-      // Step 5 (order status) is not built yet: confirm and start a new request.
-      messenger.showSnackBar(
-        SnackBar(content: Text('Order #$orderId approved. The status screen comes in a later step.')),
-      );
-      context.go('/patient');
+      // On to step 5, which follows the order by its id; the draft is no longer needed.
+      _submitted = true;
+      context.go('/prepare/$orderId');
       draft.clear();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -107,6 +103,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
   Widget build(BuildContext context) {
     final draft = context.watch<OrderDraft>();
     final patient = draft.patient;
+    if (_submitted) return const SizedBox.shrink(); // leaving for /prepare
     if (patient == null || draft.isEmpty) {
       // Nothing to review (e.g. opened directly, or just approved): go to the right step.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -143,52 +140,19 @@ class _ReviewScreenState extends State<ReviewScreen> {
     );
   }
 
-  /// The requested items (.review-list). Compact: one row per item with name, slot and
-  /// units (the prototype puts the slot under the name), so 5 lines fit without scrolling.
+  /// The requested items (.review-list), one compact [OrderLineRow] per item.
   Widget _buildLines(OrderDraft draft, AppScale scale) {
-    final lines = draft.lines;
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusCard),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusCard - 1),
-        child: ListView.separated(
-          key: const Key('review-list'),
-          shrinkWrap: true,
-          padding: EdgeInsets.zero,
-          itemCount: lines.length,
-          separatorBuilder: (_, _) => const Divider(height: 1, thickness: 1, color: AppColors.border),
-          itemBuilder: (context, i) {
-            final line = lines[i];
-            return Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: scale.size(AppSpacing.reviewLinePaddingX),
-                vertical: scale.size(AppSpacing.reviewLinePaddingY),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(line.item.name, style: scale.strong, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  SizedBox(width: scale.size(AppSpacing.gapL)),
-                  Text('Slot ${line.item.slotNumber}', style: scale.text(AppText.small.copyWith(fontSize: 14))),
-                  // Clear gap before the quantity, never smaller than 16 px on short windows.
-                  SizedBox(width: math.max(AppSpacing.reviewSlotGapMin, scale.size(AppSpacing.reviewSlotGap))),
-                  // Fixed-width, right-aligned quantity column so all rows line up. It grows
-                  // with the text size (not the spacing), so "30 units" always fits.
-                  SizedBox(
-                    key: const Key('review-units'),
-                    width: AppSpacing.reviewUnitsWidth * scale.textFactor,
-                    child: Text(_units(line.qty), style: scale.strong, textAlign: TextAlign.right, maxLines: 1),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
+    return OrderLineList(
+      key: const Key('review-list'),
+      rows: [
+        for (final line in draft.lines)
+          OrderLineRow(
+            name: line.item.name,
+            slotNumber: line.item.slotNumber,
+            quantity: unitsLabel(line.qty),
+            scale: scale,
+          ),
+      ],
     );
   }
 
@@ -206,7 +170,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
         children: [
           Text('Total', style: scale.body),
           SizedBox(width: scale.size(AppSpacing.summaryTotalGap)),
-          Text(_units(total), style: scale.strong),
+          Text(unitsLabel(total), style: scale.strong),
         ],
       ),
     );

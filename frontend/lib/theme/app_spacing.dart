@@ -84,5 +84,17 @@ class AppSpacing {
   static const double reviewUnitsWidth = 90; // right column with "n units" (times the text factor)
   static const double reviewSlotGap = 24; // between "Slot n" and the quantity column
   static const double reviewSlotGapMin = 16;
+  // Prepare screen
+  static const double stageDotSize = 28; // .working-steps i
+  static const double cabinetPadding = 24; // .cabinet-wrap
+  static const double cabinetInnerPadding = 8; // .cabinet
+  static const double drawerGap = 6;
+  static const double drawerHeight = 54; // .drawer
+  static const double drawerRadius = 5;
+  static const double currentActionPadding = 22; // .current-action
+  static const double pulseDotSize = 14; // .pulse-dot
+  static const double faultIconSize = 70; // .fault-icon
+  static const double robotContentGap = 24; // .robot-content
+  static const double lineStatusWidth = 120; // status chip column on the Prepare result (times the text factor)
   static const double summaryTotalGap = 30; // .summary-total
 }

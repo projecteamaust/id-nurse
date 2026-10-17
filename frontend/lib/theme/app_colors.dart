@@ -33,6 +33,8 @@ class AppColors {
   static const stepDot = Color(0xFF9DB0AD);
   static const cabinet = Color(0xFFEDF3F2);
   static const cabinetBorder = Color(0xFFCADBD8);
+  static const drawerBorder = Color(0xFFAAC2BE); // .drawer
+  static const stageInactive = Color(0xFF93A5A2); // .working-steps > div
   static const doorOpen = Color(0xFF253C39);
   static const toast = Color(0xFF12302D);
   static const adminSidebar = Color(0xFF102E2B);

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 import '../models/item.dart';
@@ -15,9 +16,10 @@ import 'api_service.dart';
 /// - Keeps its data as plain JSON maps (the same field names as docs/api.md) and turns
 ///   them into models with `fromJson`, exactly like the real service will.
 /// - Follows the backend rules: same status codes, same error messages, same order states.
-/// - An approved order really moves: PENDING -> DISPENSING -> DONE (or PARTIAL / FAILED
-///   if a drawer runs empty), one unit per [pickInterval]. Stock goes down only when a
-///   unit is "picked", never at order creation.
+/// - An approved order really moves: PENDING -> DISPENSING -> DONE, one unit per
+///   [pickInterval]. A failed pick (empty drawer) is retried once, then the order stops as
+///   PARTIAL or FAILED (docs/order-flow-and-arm.md). Stock goes down only when a unit is
+///   "picked", never at order creation.
 class MockApiService implements ApiService {
   /// Fake network delay on every call, so loading states can be seen.
   final Duration networkDelay;
@@ -29,6 +31,12 @@ class MockApiService implements ApiService {
     this.networkDelay = const Duration(milliseconds: 600),
     this.pickInterval = const Duration(seconds: 1),
   });
+
+  /// TESTS ONLY: after this many units have been picked in an order, every further pick
+  /// fails like an arm fault. 0 forces FAILED; fewer than the order's units forces PARTIAL.
+  /// null (the default, and always in the app) = the arm never faults.
+  @visibleForTesting
+  int? failPicksAfterUnits;
 
   /// Same limit as the backend config MAX_QTY_PER_ITEM (default 30).
   static const maxQtyPerItem = 30;
@@ -219,28 +227,17 @@ class MockApiService implements ApiService {
 
   // ---------------------------------------------------------------- fake robot
 
-  /// Picks one unit per tick. If a drawer is empty the line is given up
-  /// (the real backend retries once first). When nothing is left to pick the order
-  /// ends as DONE (everything picked), PARTIAL (some picked) or FAILED (nothing picked).
+  /// Picks one unit per tick, like the backend (docs/order-flow-and-arm.md, step 6):
+  /// a pick fails when the drawer is empty or the arm faults ([failPicksAfterUnits]).
+  /// A failed pick is retried once on the next tick; if that fails too, the order stops.
+  /// The order ends as DONE (everything picked), PARTIAL (some picked) or FAILED (nothing).
   void _startRobot(int orderId) {
     final order = _orders[orderId]!;
     final lines = (order['items'] as List).cast<Map<String, dynamic>>();
-    final givenUp = <int>{};
+    var picked = 0; // units picked in this order
+    var retrying = false; // the last pick failed; this tick is its one retry
 
-    _robotTimers[orderId] = Timer.periodic(pickInterval, (timer) {
-      final next = lines.where((l) => l['qty_dispensed'] < l['qty_requested'] && !givenUp.contains(l['item_id'])).firstOrNull;
-
-      if (next != null) {
-        final item = _items.firstWhere((i) => i['id'] == next['item_id']);
-        if ((item['quantity'] as int) > 0) {
-          item['quantity'] = (item['quantity'] as int) - 1;
-          next['qty_dispensed'] = (next['qty_dispensed'] as int) + 1;
-        } else {
-          givenUp.add(next['item_id'] as int);
-        }
-        return;
-      }
-
+    void finish(Timer timer) {
       final requested = lines.fold<int>(0, (s, l) => s + (l['qty_requested'] as int));
       final dispensed = lines.fold<int>(0, (s, l) => s + (l['qty_dispensed'] as int));
       order['status'] = dispensed == requested
@@ -251,6 +248,24 @@ class MockApiService implements ApiService {
       order['completed_at'] = _now();
       timer.cancel();
       _robotTimers.remove(orderId);
+    }
+
+    _robotTimers[orderId] = Timer.periodic(pickInterval, (timer) {
+      final next = lines.where((l) => (l['qty_dispensed'] as int) < (l['qty_requested'] as int)).firstOrNull;
+      if (next == null) return finish(timer);
+
+      final item = _items.firstWhere((i) => i['id'] == next['item_id']);
+      final armFault = failPicksAfterUnits != null && picked >= failPicksAfterUnits!;
+      if (!armFault && (item['quantity'] as int) > 0) {
+        item['quantity'] = (item['quantity'] as int) - 1; // stock goes down only on a real pick
+        next['qty_dispensed'] = (next['qty_dispensed'] as int) + 1;
+        picked++;
+        retrying = false;
+      } else if (!retrying) {
+        retrying = true; // try this pick once more on the next tick
+      } else {
+        finish(timer); // retried and failed again: stop the order
+      }
     });
   }
 

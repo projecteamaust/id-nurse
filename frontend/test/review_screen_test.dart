@@ -92,8 +92,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Lets the fake robot finish (1 unit per second) and the snackbar disappear,
-  /// so no timers are left when the test ends.
+  /// Lets the fake robot finish (1 unit per second) while Prepare polls, until the app
+  /// reaches Collect, so no timers are left when the test ends.
   Future<void> letRobotFinish(WidgetTester tester) async {
     await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
@@ -140,9 +140,9 @@ void main() {
         }
 
         // The quantity column has the same width and right edge in every row.
-        final columns = tester.widgetList(find.byKey(const Key('review-units'))).length;
+        final columns = tester.widgetList(find.byKey(const Key('line-quantity'))).length;
         expect(columns, 2);
-        final rects = [for (var i = 0; i < columns; i++) tester.getRect(find.byKey(const Key('review-units')).at(i))];
+        final rects = [for (var i = 0; i < columns; i++) tester.getRect(find.byKey(const Key('line-quantity')).at(i))];
         expect(rects[1].width, rects[0].width);
         expect(rects[1].right, rects[0].right);
       });
@@ -158,19 +158,21 @@ void main() {
     expect(api.createCalls, 0);
   });
 
-  testWidgets('"Authorize request" creates and approves the order, then starts a new request', (tester) async {
+  testWidgets('"Authorize request" creates and approves the order, then opens Prepare', (tester) async {
     await openReview(tester);
     await authorize(tester);
 
-    expect(find.text('Order #1 approved. The status screen comes in a later step.'), findsOneWidget);
-    expect(find.text('Which patient?'), findsOneWidget);
+    expect(find.text('Preparing your request'), findsOneWidget);
     expect(api.createCalls, 1);
     expect(api.approveCalls, 1);
 
     await letRobotFinish(tester);
     expect(await orderStatuses(tester), [OrderStatus.done]);
+    expect(find.text('Your items are ready'), findsOneWidget);
 
     // The request was cleared: Supplies starts empty for the next patient.
+    await tester.tap(find.text('New request'));
+    await tester.pumpAndSettle();
     await tapDigits(tester, '284913');
     await tester.tap(find.text('Find patient'));
     await tester.pumpAndSettle();
@@ -196,7 +198,7 @@ void main() {
     expect(await orderStatuses(tester), [OrderStatus.pending]);
 
     await authorize(tester);
-    expect(find.text('Which patient?'), findsOneWidget);
+    expect(find.text('Preparing your request'), findsOneWidget);
     expect(api.createCalls, 1);
     expect(api.approveCalls, 2);
     await letRobotFinish(tester);

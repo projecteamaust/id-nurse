@@ -120,10 +120,11 @@ void main() {
 
     test('order ends PARTIAL when a drawer runs empty', () async {
       // Two orders together want 9 + 1 units of an item with only 9 in stock.
+      // The empty item is last, so the mask is picked first.
       final first = await api.createOrder('284913', const [OrderLineRequest(itemId: 2, qty: 9)]);
       final second = await api.createOrder('284913', const [
-        OrderLineRequest(itemId: 2, qty: 1),
         OrderLineRequest(itemId: 6, qty: 1),
+        OrderLineRequest(itemId: 2, qty: 1),
       ]);
       await api.approveOrder(first.id);
       expect((await waitUntilFinal(first.id)).status, OrderStatus.done);
@@ -131,6 +132,48 @@ void main() {
       final result = await waitUntilFinal(second.id);
       expect(result.status, OrderStatus.partial);
       expect(result.items.where((l) => l.qtyDispensed < l.qtyRequested).single.itemId, 2);
+    });
+
+    test('a failed pick is retried once, then the whole order stops', () async {
+      // The empty drawer comes first: after one retry the order stops, so the mask
+      // (second line) is never picked and nothing was dispensed -> FAILED.
+      // Both orders are created while stock is still there; the first one then empties it.
+      final first = await api.createOrder('284913', const [OrderLineRequest(itemId: 2, qty: 9)]);
+      final second = await api.createOrder('284913', const [
+        OrderLineRequest(itemId: 2, qty: 1),
+        OrderLineRequest(itemId: 6, qty: 1),
+      ]);
+      await api.approveOrder(first.id);
+      await waitUntilFinal(first.id);
+      await api.approveOrder(second.id);
+      final result = await waitUntilFinal(second.id);
+      expect(result.status, OrderStatus.failed);
+      expect(result.items.every((l) => l.qtyDispensed == 0), isTrue);
+      expect((await api.getItems(search: 'mask')).single.quantity, 26); // untouched
+    });
+
+    test('tests can force FAILED: the arm faults from the first pick', () async {
+      api.failPicksAfterUnits = 0;
+      final order = await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 2)]);
+      await api.approveOrder(order.id);
+      final result = await waitUntilFinal(order.id);
+      expect(result.status, OrderStatus.failed);
+      expect(result.completedAt, isNotNull);
+      expect((await api.getItems(search: 'gauze')).single.quantity, 42); // no pick, no stock change
+    });
+
+    test('tests can force PARTIAL: the arm faults after 2 units', () async {
+      api.failPicksAfterUnits = 2;
+      final order = await api.createOrder('284913', const [
+        OrderLineRequest(itemId: 1, qty: 2),
+        OrderLineRequest(itemId: 2, qty: 1),
+      ]);
+      await api.approveOrder(order.id);
+      final result = await waitUntilFinal(order.id);
+      expect(result.status, OrderStatus.partial);
+      expect([for (final l in result.items) l.qtyDispensed], [2, 0]);
+      expect((await api.getItems(search: 'gauze')).single.quantity, 40); // only picked units
+      expect((await api.getItems(search: 'adhesive')).single.quantity, 9);
     });
 
     test('approve and cancel only while PENDING (409 otherwise)', () async {
