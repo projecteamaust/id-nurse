@@ -68,6 +68,9 @@ class _NoDemoApi implements ApiService {
   @override
   Future<List<User>> listUsers({String? role}) => inner.listUsers(role: role);
   @override
+  Future<String> exportDispenseCsv({DateTime? from, DateTime? to, int? nurseId}) =>
+      inner.exportDispenseCsv(from: from, to: to, nurseId: nurseId);
+  @override
   Future<List<AuditEntry>> listAudit({DateTime? from, DateTime? to, int? nurseId, int limit = 100}) =>
       inner.listAudit(from: from, to: to, nurseId: nurseId, limit: limit);
   @override

@@ -320,6 +320,62 @@ class MockApiService implements ApiService, DemoControls {
         .toList();
   }
 
+  /// Column order of GET /reports/dispense.csv (docs/api.md).
+  static const dispenseCsvColumns = [
+    'order_id',
+    'created_at',
+    'completed_at',
+    'status',
+    'patient_file_number',
+    'nurse_employee_id',
+    'nurse_name',
+    'item_name',
+    'slot_number',
+    'qty_requested',
+    'qty_dispensed',
+  ];
+
+  @override
+  Future<String> exportDispenseCsv({DateTime? from, DateTime? to, int? nurseId}) async {
+    await _delay();
+    _requireSupervisor();
+    final inRange = _dayFilter(from, to);
+    final nurseEmployeeId = nurseId == null ? null : _users.where((u) => u['id'] == nurseId).firstOrNull?['employee_id'];
+    final orders = _orders.values
+        .where((o) => o['status'] != OrderStatus.cancelled.value)
+        .where((o) => nurseId == null || o['nurse']['employee_id'] == nurseEmployeeId)
+        .where((o) => inRange(o['created_at'] as String))
+        .toList()
+      ..sort((a, b) => (a['id'] as int).compareTo(b['id'] as int)); // oldest first
+    final rows = [
+      dispenseCsvColumns,
+      for (final o in orders)
+        for (final l in (o['items'] as List).cast<Map<String, dynamic>>())
+          [
+            o['id'],
+            o['created_at'],
+            o['completed_at'] ?? '', // empty while the order is still running
+            o['status'],
+            o['patient']['file_number'],
+            o['nurse']['employee_id'],
+            o['nurse']['name'],
+            l['name'],
+            l['slot_number'],
+            l['qty_requested'],
+            l['qty_dispensed'],
+          ],
+    ];
+    return '${rows.map((r) => r.map(_csvField).join(',')).join('\n')}\n';
+  }
+
+  /// One CSV field: wrapped in double quotes when it has a comma, a quote or a line break,
+  /// with quotes inside doubled (standard CSV, RFC 4180).
+  static String _csvField(Object? value) {
+    final text = '$value';
+    if (!text.contains(RegExp(r'[",\n\r]'))) return text;
+    return '"${text.replaceAll('"', '""')}"';
+  }
+
   /// A test for "is this ISO timestamp's day between [from] and [to]?" (both inclusive,
   /// both optional). The day is the date part of the timestamp: the server's local date.
   /// [from] after [to] is a 422, like the backend.

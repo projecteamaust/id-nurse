@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
-import 'screens/admin_placeholder_screen.dart';
 import 'screens/collect_screen.dart';
 import 'screens/complete_screen.dart';
 import 'screens/dispensing_log_screen.dart';
@@ -10,6 +9,7 @@ import 'screens/low_stock_screen.dart';
 import 'screens/patient_screen.dart';
 import 'screens/prepare_screen.dart';
 import 'screens/problem_reports_screen.dart';
+import 'screens/reports_screen.dart';
 import 'screens/review_screen.dart';
 import 'screens/supervisor_login_screen.dart';
 import 'screens/stock_screen.dart';
@@ -42,7 +42,7 @@ GoRouter buildRouter(AuthState auth) {
           GoRoute(path: '/supervisor/stock', builder: (context, state) => const StockScreen()),
           GoRoute(path: '/supervisor/low-stock', builder: (context, state) => const LowStockScreen()),
           GoRoute(path: '/supervisor/log', builder: (context, state) => const DispensingLogScreen()),
-          GoRoute(path: '/supervisor/reports', builder: (context, state) => const AdminPlaceholderScreen()),
+          GoRoute(path: '/supervisor/reports', builder: (context, state) => const ReportsScreen()),
         ],
       ),
       GoRoute(path: '/patient', builder: (context, state) => const PatientScreen()),

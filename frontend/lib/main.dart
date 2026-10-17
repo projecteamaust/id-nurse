@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'app_router.dart';
 import 'services/api_service.dart';
 import 'services/auth_state.dart';
+import 'services/file_saver.dart';
 import 'services/mock_api_service.dart';
 import 'services/order_draft.dart';
 import 'theme/app_theme.dart';
@@ -18,7 +19,10 @@ void main() {
 class IdNurseApp extends StatefulWidget {
   final ApiService api;
 
-  const IdNurseApp({super.key, required this.api});
+  /// Where exported files are saved. Null = the user's Downloads folder.
+  final FileSaver? fileSaver;
+
+  const IdNurseApp({super.key, required this.api, this.fileSaver});
 
   @override
   State<IdNurseApp> createState() => _IdNurseAppState();
@@ -27,6 +31,7 @@ class IdNurseApp extends StatefulWidget {
 class _IdNurseAppState extends State<IdNurseApp> {
   final _auth = AuthState();
   final _draft = OrderDraft();
+  late final FileSaver _fileSaver = widget.fileSaver ?? DownloadsFileSaver();
   late final GoRouter _router = buildRouter(_auth);
 
   @override
@@ -42,6 +47,7 @@ class _IdNurseAppState extends State<IdNurseApp> {
     return MultiProvider(
       providers: [
         Provider<ApiService>.value(value: widget.api),
+        Provider<FileSaver>.value(value: _fileSaver),
         ChangeNotifierProvider<AuthState>.value(value: _auth),
         ChangeNotifierProvider<OrderDraft>.value(value: _draft),
       ],

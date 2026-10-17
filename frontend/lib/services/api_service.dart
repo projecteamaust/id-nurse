@@ -87,6 +87,10 @@ abstract class ApiService {
   /// [nurseId] keeps only actions done by that user
   Future<List<AuditEntry>> listAudit({DateTime? from, DateTime? to, int? nurseId, int limit = 100});
 
+  /// GET /reports/dispense.csv (supervisor): the CSV text, one row per order line,
+  /// filtered like [listOrders]
+  Future<String> exportDispenseCsv({DateTime? from, DateTime? to, int? nurseId});
+
   /// POST /orders/{id}/report -> report with status open (only PARTIAL or FAILED orders)
   Future<ProblemReport> reportProblem(int orderId, {String? note});
 

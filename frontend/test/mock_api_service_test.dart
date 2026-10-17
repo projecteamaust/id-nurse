@@ -348,6 +348,53 @@ void main() {
     });
   });
 
+  group('dispense CSV (GET /reports/dispense.csv)', () {
+    Future<void> signInSupervisor() =>
+        api.login('31082', LoginMethod.manual, password: MockApiService.demoSupervisorPassword);
+
+    const header = 'order_id,created_at,completed_at,status,patient_file_number,'
+        'nurse_employee_id,nurse_name,item_name,slot_number,qty_requested,qty_dispensed';
+
+    setUp(signInNurse);
+
+    test('header, one row per order line, oldest first; quoting; cancelled left out; running has no completed_at',
+        () async {
+      final done = await api.createOrder('284913', const [
+        OrderLineRequest(itemId: 1, qty: 2),
+        OrderLineRequest(itemId: 5, qty: 1), // "Nitrile gloves, M" has a comma
+      ]);
+      await api.approveOrder(done.id);
+      final finished = await waitUntilFinal(done.id);
+      final cancelled = await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]);
+      await api.cancelOrder(cancelled.id);
+      final pending = await api.createOrder('548220', const [OrderLineRequest(itemId: 2, qty: 1)]);
+      await signInSupervisor();
+
+      final csv = await api.exportDispenseCsv();
+      final lines = csv.split('\n');
+      expect(lines.first, header);
+      expect(lines.last, ''); // ends with a line break
+      expect(lines.sublist(1, lines.length - 1), [
+        '1,${finished.createdAt},${finished.completedAt},DONE,284913,48216,Maya Chen,Sterile gauze pads,1,2,2',
+        '1,${finished.createdAt},${finished.completedAt},DONE,284913,48216,Maya Chen,"Nitrile gloves, M",5,1,1',
+        '3,${pending.createdAt},,PENDING,548220,48216,Maya Chen,Adhesive dressing,2,1,0',
+      ]);
+    });
+
+    test('filters like GET /orders; supervisors only (403); from after to is 422', () async {
+      await api.createOrder('284913', const [OrderLineRequest(itemId: 1, qty: 1)]);
+      await signInSupervisor();
+      await api.createOrder('548220', const [OrderLineRequest(itemId: 2, qty: 1)]);
+      final byNurse = (await api.exportDispenseCsv(nurseId: 1)).trim().split('\n');
+      expect(byNurse, hasLength(2)); // header + the nurse's line
+      expect(byNurse[1], contains('Maya Chen'));
+      expect((await api.exportDispenseCsv(to: DateTime(2000))).trim(), header); // nothing that early
+      await expectLater(api.exportDispenseCsv(from: DateTime(2026, 2), to: DateTime(2026, 1)), _apiError(422));
+      await signInNurse();
+      await expectLater(api.exportDispenseCsv(), _apiError(403));
+    });
+  });
+
   group('date filters (inclusive, by local day)', () {
     // A clock the test moves: orders and actions are created "on" different days.
     var now = DateTime(2026, 10, 14, 23, 59);

@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../models/audit_entry.dart';
 import '../models/order.dart';
 import '../models/order_summary.dart';
-import '../models/user.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_scale.dart';
@@ -14,7 +13,7 @@ import '../theme/app_text.dart';
 import '../widgets/admin_shell.dart';
 import '../widgets/admin_table.dart';
 import '../widgets/app_alert.dart';
-import '../widgets/app_button.dart';
+import '../widgets/log_filter_bar.dart';
 import '../widgets/status_chip.dart';
 
 enum _LogTab { orders, actions }
@@ -22,7 +21,7 @@ enum _LogTab { orders, actions }
 /// Supervisor dashboard page "Dispensing log" (prototype: Transactions):
 /// - Orders: GET /orders (newest first) with date, order, patient, nurse, items, units, status.
 /// - Actions: GET /audit, everything in the audit log: sign ins, approvals, picks, stock edits…
-/// Both use the same filters: From / To day (inclusive) and Nurse (GET /users?role=nurse).
+/// Both use the same filters ([LogFilterBar]): From / To day (inclusive) and Nurse.
 /// The nurse filter keeps only what that nurse did, so the robot's own picks ("System")
 /// are hidden while a nurse is chosen (docs/api.md).
 class DispensingLogScreen extends StatefulWidget {
@@ -54,15 +53,11 @@ class _DispensingLogScreenState extends State<DispensingLogScreen> {
     AdminColumn('Summary', flex: 7),
   ];
 
-  static final _dayFormat = DateFormat.yMMMd();
   static final _timeFormat = DateFormat.MMMd().add_jm();
 
   _LogTab _tab = _LogTab.orders;
-  DateTime? _from;
-  DateTime? _to;
-  int? _nurseId;
+  LogFilters _filters = const LogFilters();
 
-  List<User> _nurses = const [];
   List<OrderSummary>? _orders;
   List<AuditEntry>? _actions;
   bool _loading = false;
@@ -71,22 +66,10 @@ class _DispensingLogScreenState extends State<DispensingLogScreen> {
   /// Counts loads, so an older (slower) answer never replaces a newer one.
   int _loadId = 0;
 
-  bool get _hasFilters => _from != null || _to != null || _nurseId != null;
-
   @override
   void initState() {
     super.initState();
-    _loadNurses();
     _load();
-  }
-
-  Future<void> _loadNurses() async {
-    try {
-      final nurses = await context.read<ApiService>().listUsers(role: 'nurse');
-      if (mounted) setState(() => _nurses = nurses);
-    } catch (_) {
-      // Without the list the nurse filter just offers "All nurses".
-    }
   }
 
   Future<void> _load() async {
@@ -98,8 +81,8 @@ class _DispensingLogScreenState extends State<DispensingLogScreen> {
     final api = context.read<ApiService>();
     try {
       final results = await Future.wait([
-        api.listOrders(limit: _limit, nurseId: _nurseId, from: _from, to: _to),
-        api.listAudit(limit: _limit, nurseId: _nurseId, from: _from, to: _to),
+        api.listOrders(limit: _limit, nurseId: _filters.nurseId, from: _filters.from, to: _filters.to),
+        api.listAudit(limit: _limit, nurseId: _filters.nurseId, from: _filters.from, to: _filters.to),
       ]);
       if (!mounted || id != _loadId) return;
       setState(() {
@@ -113,33 +96,6 @@ class _DispensingLogScreenState extends State<DispensingLogScreen> {
     }
   }
 
-  /// Opens Flutter's date picker. From can not be after To, and To not before From.
-  Future<void> _pickDay({required bool from}) async {
-    final today = DateUtils.dateOnly(DateTime.now());
-    final current = from ? _from : _to;
-    final first = from ? DateTime(2020) : (_from ?? DateTime(2020));
-    final last = from ? (_to ?? today) : today;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current ?? (last.isBefore(today) ? last : today),
-      firstDate: first,
-      lastDate: last,
-      helpText: from ? 'Show from' : 'Show until',
-    );
-    if (picked == null || !mounted) return;
-    setState(() => from ? _from = picked : _to = picked);
-    _load();
-  }
-
-  void _clearFilters() {
-    setState(() {
-      _from = null;
-      _to = null;
-      _nurseId = null;
-    });
-    _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     final scale = context.watch<AppScale>();
@@ -147,7 +103,27 @@ class _DispensingLogScreenState extends State<DispensingLogScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildToolbar(scale),
+          LogFilterBar(
+            filters: _filters,
+            onChanged: (filters) {
+              setState(() => _filters = filters);
+              _load();
+            },
+            scale: scale,
+            leading: [
+              _Segmented(
+                labels: const ['Orders', 'Actions'],
+                keys: const [Key('tab-orders'), Key('tab-actions')],
+                selected: _tab.index,
+                onSelect: (i) => setState(() => _tab = _LogTab.values[i]),
+                scale: scale,
+              ),
+            ],
+            trailing: [
+              if (_loading)
+                SizedBox.square(dimension: scale.size(20), child: const CircularProgressIndicator(strokeWidth: 2)),
+            ],
+          ),
           SizedBox(height: scale.size(AppSpacing.gapXl)),
           if (_error != null)
             AppAlert(
@@ -158,83 +134,6 @@ class _DispensingLogScreenState extends State<DispensingLogScreen> {
             ),
           Expanded(child: _tab == _LogTab.orders ? _buildOrders(scale) : _buildActions(scale)),
         ],
-      ),
-    );
-  }
-
-  /// .toolbar: Orders | Actions, then the filters. Wraps onto a second line on narrow windows.
-  Widget _buildToolbar(AppScale scale) {
-    final gap = scale.size(AppSpacing.toolbarGap);
-    String day(DateTime? d) => d == null ? 'any day' : _dayFormat.format(d);
-    return Wrap(
-      spacing: gap,
-      runSpacing: gap,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        _Segmented(
-          labels: const ['Orders', 'Actions'],
-          keys: const [Key('tab-orders'), Key('tab-actions')],
-          selected: _tab.index,
-          onSelect: (i) => setState(() => _tab = _LogTab.values[i]),
-          scale: scale,
-        ),
-        AppButton(
-          key: const Key('filter-from'),
-          label: 'From: ${day(_from)}',
-          variant: AppButtonVariant.secondary,
-          onPressed: () => _pickDay(from: true),
-          height: scale.buttonHeight,
-          textStyle: scale.text(AppText.button.copyWith(fontSize: 15)),
-        ),
-        AppButton(
-          key: const Key('filter-to'),
-          label: 'To: ${day(_to)}',
-          variant: AppButtonVariant.secondary,
-          onPressed: () => _pickDay(from: false),
-          height: scale.buttonHeight,
-          textStyle: scale.text(AppText.button.copyWith(fontSize: 15)),
-        ),
-        _buildNurseFilter(scale),
-        AppButton(
-          label: 'Clear filters',
-          variant: AppButtonVariant.ghost,
-          onPressed: _hasFilters ? _clearFilters : null,
-          height: scale.buttonHeight,
-          textStyle: scale.text(AppText.button.copyWith(fontSize: 15)),
-        ),
-        if (_loading) SizedBox.square(dimension: scale.size(20), child: const CircularProgressIndicator(strokeWidth: 2)),
-      ],
-    );
-  }
-
-  /// "All nurses" or one nurse, in a field that looks like the secondary buttons.
-  Widget _buildNurseFilter(AppScale scale) {
-    final style = scale.text(AppText.button.copyWith(fontSize: 15, color: AppColors.text));
-    return Container(
-      width: AppSpacing.nurseFilterWidth * scale.textFactor,
-      height: scale.buttonHeight,
-      padding: EdgeInsets.symmetric(horizontal: scale.size(AppSpacing.gapL)),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusButton),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int?>(
-          key: const Key('filter-nurse'),
-          value: _nurseId,
-          isExpanded: true,
-          style: style,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusButton),
-          items: [
-            DropdownMenuItem<int?>(value: null, child: Text('All nurses', style: style)),
-            for (final n in _nurses) DropdownMenuItem<int?>(value: n.id, child: Text(n.name, style: style)),
-          ],
-          onChanged: (id) {
-            setState(() => _nurseId = id);
-            _load();
-          },
-        ),
       ),
     );
   }
