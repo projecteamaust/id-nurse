@@ -1,6 +1,7 @@
 /// App settings chosen at build time, never by editing code.
 ///
-/// Demo mode shows the "Simulate card scan" button on the login screen.
+/// Demo mode shows the "Simulate card scan" button on the login screen and, with the
+/// mock service, "Simulate robot fault" on the Prepare screen (to show PARTIAL / FAILED).
 /// Turn it off with: flutter run --dart-define=DEMO_MODE=false
 class AppConfig {
   AppConfig._();

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:id_nurse/main.dart';
+import 'package:id_nurse/models/item.dart';
+import 'package:id_nurse/models/login_response.dart';
 import 'package:id_nurse/models/order.dart';
+import 'package:id_nurse/models/order_summary.dart';
+import 'package:id_nurse/models/patient.dart';
+import 'package:id_nurse/models/user.dart';
 import 'package:id_nurse/services/api_service.dart';
 import 'package:id_nurse/services/mock_api_service.dart';
 
@@ -21,6 +26,37 @@ class _TestApi extends MockApiService {
     }
     return super.getOrder(orderId);
   }
+}
+
+/// Passes every call to a MockApiService but offers no DemoControls, like RealApiService will.
+class _NoDemoApi implements ApiService {
+  final MockApiService inner;
+
+  _NoDemoApi(this.inner);
+
+  @override
+  Future<LoginResponse> login(String employeeId, LoginMethod method, {String? password}) =>
+      inner.login(employeeId, method, password: password);
+  @override
+  Future<User> me() => inner.me();
+  @override
+  void signOut() => inner.signOut();
+  @override
+  Future<Patient> getPatient(String fileNumber) => inner.getPatient(fileNumber);
+  @override
+  Future<List<Item>> getItems({String? category, String? search}) =>
+      inner.getItems(category: category, search: search);
+  @override
+  Future<Order> createOrder(String patientFileNumber, List<OrderLineRequest> items) =>
+      inner.createOrder(patientFileNumber, items);
+  @override
+  Future<Order> approveOrder(int orderId) => inner.approveOrder(orderId);
+  @override
+  Future<Order> cancelOrder(int orderId) => inner.cancelOrder(orderId);
+  @override
+  Future<Order> getOrder(int orderId) => inner.getOrder(orderId);
+  @override
+  Future<List<OrderSummary>> listOrders({int limit = 20}) => inner.listOrders(limit: limit);
 }
 
 void main() {
@@ -56,11 +92,12 @@ void main() {
     WidgetTester tester, {
     Size size = const Size(1280, 800),
     Future<void> Function()? lines,
+    ApiService? app, // default: [api]
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(IdNurseApp(api: api));
+    await tester.pumpWidget(IdNurseApp(api: app ?? api));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Simulate card scan'));
     await tester.pumpAndSettle();
@@ -184,6 +221,45 @@ void main() {
     expect(find.text('Which patient?'), findsOneWidget);
   });
 
+  group('demo: "Simulate robot fault"', () {
+    testWidgets('before anything is picked, the order ends as FAILED', (tester) async {
+      api = _TestApi(pickInterval: const Duration(seconds: 3));
+      await openPrepare(tester);
+      expect(find.text('0 of 3 units picked'), findsOneWidget);
+      await tester.tap(find.text('Simulate robot fault'));
+      await tester.pump();
+      expect(find.text('Robot fault simulated'), findsOneWidget);
+      await pumpUntilFound(tester, find.text('Your request could not be dispensed'));
+      expect(find.text('0 of 2'), findsOneWidget);
+      expect(find.text('0 of 1'), findsOneWidget);
+    });
+
+    testWidgets('after the first item, the order ends as PARTIAL; then Collect and Complete', (tester) async {
+      api = _TestApi(pickInterval: const Duration(seconds: 3));
+      await openPrepare(tester);
+      await pumpUntilFound(tester, find.text('Item 2 of 2')); // the gauze (2 units) is picked
+      await tester.tap(find.text('Simulate robot fault'));
+      await pumpUntilFound(tester, find.text('Some items could not be dispensed'));
+      expect(find.text('2 of 2'), findsOneWidget);
+      expect(find.text('0 of 1'), findsOneWidget);
+
+      await tester.tap(find.text('Collect available items'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('supervisor-alert')), findsOneWidget);
+      await tester.tap(find.text('I have collected my items'));
+      await tester.pumpAndSettle();
+      expect(find.text('Request recorded with missing items'), findsOneWidget);
+    });
+
+    testWidgets('is hidden when the service has no demo controls (the real API)', (tester) async {
+      api = _TestApi(pickInterval: const Duration(seconds: 3));
+      await openPrepare(tester, app: _NoDemoApi(api));
+      expect(find.text('Preparing your request'), findsOneWidget);
+      expect(find.text('Simulate robot fault'), findsNothing);
+      await pumpUntilFound(tester, find.text('Your items are ready'));
+    });
+  });
+
   group('fits the window without scrolling', () {
     const sizes = [Size(1280, 720), Size(1366, 768), Size(1280, 800), Size(1920, 1080)];
 
@@ -206,6 +282,8 @@ void main() {
         expect(tester.getRect(find.byKey(const ValueKey('drawer-6'))).bottom, lessThanOrEqualTo(card.bottom));
         // The bottom of the "Now working" panel is inside the card too.
         expect(tester.getRect(find.textContaining('units picked')).bottom, lessThanOrEqualTo(card.bottom));
+        // The demo button under it fits as well.
+        expect(tester.getRect(find.text('Simulate robot fault')).bottom, lessThanOrEqualTo(card.bottom));
         await pumpUntilFound(tester, find.text('Your items are ready'));
       });
 

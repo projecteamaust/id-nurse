@@ -10,6 +10,7 @@ import '../models/order_summary.dart';
 import '../models/patient.dart';
 import '../models/user.dart';
 import 'api_service.dart';
+import 'demo_controls.dart';
 
 /// Fake backend for building the screens before the real API exists.
 ///
@@ -20,7 +21,7 @@ import 'api_service.dart';
 ///   [pickInterval]. A failed pick (empty drawer) is retried once, then the order stops as
 ///   PARTIAL or FAILED (docs/order-flow-and-arm.md). Stock goes down only when a unit is
 ///   "picked", never at order creation.
-class MockApiService implements ApiService {
+class MockApiService implements ApiService, DemoControls {
   /// Fake network delay on every call, so loading states can be seen.
   final Duration networkDelay;
 
@@ -255,7 +256,8 @@ class MockApiService implements ApiService {
       if (next == null) return finish(timer);
 
       final item = _items.firstWhere((i) => i['id'] == next['item_id']);
-      final armFault = failPicksAfterUnits != null && picked >= failPicksAfterUnits!;
+      final armFault = (failPicksAfterUnits != null && picked >= failPicksAfterUnits!) ||
+          _faultedOrders.contains(orderId);
       if (!armFault && (item['quantity'] as int) > 0) {
         item['quantity'] = (item['quantity'] as int) - 1; // stock goes down only on a real pick
         next['qty_dispensed'] = (next['qty_dispensed'] as int) + 1;
@@ -268,6 +270,12 @@ class MockApiService implements ApiService {
       }
     });
   }
+
+  /// Orders whose arm "faulted" through [simulateArmFault] (demo mode).
+  final Set<int> _faultedOrders = {};
+
+  @override
+  void simulateArmFault(int orderId) => _faultedOrders.add(orderId);
 
   // ---------------------------------------------------------------- helpers
 

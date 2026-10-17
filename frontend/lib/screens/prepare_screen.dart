@@ -9,6 +9,7 @@ import '../config.dart';
 import '../models/order.dart';
 import '../models/order_progress.dart';
 import '../services/api_service.dart';
+import '../services/demo_controls.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_scale.dart';
 import '../theme/app_spacing.dart';
@@ -26,6 +27,7 @@ import '../widgets/working_steps.dart';
 /// Polls GET /orders/{id} every [AppConfig.pollInterval] until the order is final and
 /// shows progress per item, worked out from `qty_dispensed` ([OrderProgress]).
 /// There is no cancel button: cancel is only allowed before approval (Decision 2).
+/// Demo mode with the mock adds "Simulate robot fault", so PARTIAL and FAILED can be shown.
 /// - DONE -> the Collect step.
 /// - PARTIAL / FAILED -> the result view on this screen, listing what was and wasn't
 ///   dispensed (Decisions 3 and 6).
@@ -49,6 +51,7 @@ class _PrepareScreenState extends State<PrepareScreen> {
   Order? _order;
   bool _pollFailed = false; // the last poll failed; we keep trying
   bool _polling = false; // a GET is in flight; skip ticks until it returns
+  bool _faultSimulated = false; // demo: "Simulate robot fault" was tapped
   Timer? _timer;
 
   @override
@@ -103,6 +106,12 @@ class _PrepareScreenState extends State<PrepareScreen> {
     );
   }
 
+  /// The demo controls, only in demo mode and only when the service offers them (the mock).
+  DemoControls? get _demoControls {
+    final api = context.read<ApiService>();
+    return AppConfig.demoMode && api is DemoControls ? api as DemoControls : null;
+  }
+
   // ------------------------------------------------------------------ preparing
 
   Widget _buildPreparing(Order order, AppScale scale) {
@@ -117,7 +126,32 @@ class _PrepareScreenState extends State<PrepareScreen> {
       finishedSlots: progress.finishedSlots,
       scale: scale,
     );
-    final action = _buildCurrentAction(progress, scale);
+    final demo = _demoControls;
+    final action = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildCurrentAction(progress, scale),
+        if (demo != null && order.status == OrderStatus.dispensing && current != null) ...[
+          SizedBox(height: scale.size(AppSpacing.gapS)),
+          Align(
+            alignment: Alignment.centerRight,
+            child: AppButton(
+              label: _faultSimulated ? 'Robot fault simulated' : 'Simulate robot fault',
+              variant: AppButtonVariant.ghost,
+              onPressed: _faultSimulated
+                  ? null
+                  : () {
+                      demo.simulateArmFault(order.id);
+                      setState(() => _faultSimulated = true);
+                    },
+              height: scale.buttonHeight,
+              textStyle: scale.text(AppText.small.copyWith(fontSize: 14)),
+            ),
+          ),
+        ],
+      ],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
