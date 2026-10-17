@@ -153,7 +153,7 @@ void main() {
     expect(find.text('0 units'), findsOneWidget);
   });
 
-  testWidgets('Review request is enabled only with items', (tester) async {
+  testWidgets('Review request is enabled only with items and opens Review', (tester) async {
     await openSupplies(tester);
     final review = find.widgetWithText(FilledButton, 'Review request');
     expect(tester.widget<FilledButton>(review).onPressed, isNull);
@@ -161,8 +161,8 @@ void main() {
     await addUnits(tester, 1, 2);
     expect(tester.widget<FilledButton>(review).onPressed, isNotNull);
     await tester.tap(review);
-    await tester.pump();
-    expect(find.text('Review comes in a later step.'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('Review your request'), findsOneWidget);
   });
 
   testWidgets('sign out clears the request', (tester) async {

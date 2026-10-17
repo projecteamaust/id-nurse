@@ -77,4 +77,10 @@ class AppSpacing {
   static const double stepperButtonWidth = 56; // .stepper
   static const double stepperButtonHeight = 52;
   static const double cartEmptyIconSize = 50; // .cart-empty span
+
+  // Review screen
+  static const double reviewLinePaddingX = 20; // .review-list > div
+  static const double reviewLinePaddingY = 10; // prototype 16; compact one-row lines so 5 fit
+  static const double reviewUnitsWidth = 90; // right column with "n units"
+  static const double summaryTotalGap = 30; // .summary-total
 }

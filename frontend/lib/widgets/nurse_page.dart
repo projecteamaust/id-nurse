@@ -18,10 +18,19 @@ class NursePage extends StatelessWidget {
   /// See [ScaledPage.withCard].
   final bool withCard;
 
+  /// See [AppScale.forHeight].
+  final double spacingReferenceHeight;
+
   /// Builds what goes inside the card (see [ScaledPage.builder]).
   final Widget Function(BuildContext context, AppScale scale) builder;
 
-  const NursePage({super.key, required this.step, this.withCard = true, required this.builder});
+  const NursePage({
+    super.key,
+    required this.step,
+    this.withCard = true,
+    this.spacingReferenceHeight = AppScale.referenceHeight,
+    required this.builder,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +47,7 @@ class NursePage extends StatelessWidget {
       topBar: TopBar(user: user, onSignOut: signOut),
       step: step,
       withCard: withCard,
+      spacingReferenceHeight: spacingReferenceHeight,
       builder: builder,
     );
   }

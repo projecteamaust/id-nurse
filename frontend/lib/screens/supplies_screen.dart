@@ -94,12 +94,6 @@ class _SuppliesScreenState extends State<SuppliesScreen> {
     setState(() => _stepperQty.remove(item.id));
   }
 
-  void _showReviewNotReady() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Review comes in a later step.')),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final draft = context.watch<OrderDraft>();
@@ -342,7 +336,7 @@ class _SuppliesScreenState extends State<SuppliesScreen> {
               SizedBox(height: scale.size(AppSpacing.gapL)),
               AppButton(
                 label: 'Review request',
-                onPressed: total > 0 ? _showReviewNotReady : null,
+                onPressed: total > 0 ? () => context.go('/review') : null,
                 expand: true,
                 height: scale.buttonHeight,
                 textStyle: scale.button,

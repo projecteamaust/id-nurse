@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/patient_screen.dart';
+import 'screens/review_screen.dart';
 import 'screens/supplies_screen.dart';
 import 'services/auth_state.dart';
 
@@ -19,6 +20,7 @@ GoRouter buildRouter(AuthState auth) {
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/patient', builder: (context, state) => const PatientScreen()),
       GoRoute(path: '/supplies', builder: (context, state) => const SuppliesScreen()),
+      GoRoute(path: '/review', builder: (context, state) => const ReviewScreen()),
     ],
   );
 }
