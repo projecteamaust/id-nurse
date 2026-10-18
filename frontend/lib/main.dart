@@ -3,17 +3,21 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'app_router.dart';
+import 'config.dart';
 import 'services/api_service.dart';
 import 'services/auth_state.dart';
 import 'services/file_saver.dart';
 import 'services/mock_api_service.dart';
 import 'services/order_draft.dart';
+import 'services/real_api_service.dart';
 import 'theme/app_theme.dart';
 
 void main() {
-  // The only place that decides which ApiService is used.
-  // When the backend is ready, MockApiService is swapped for RealApiService here.
-  runApp(IdNurseApp(api: MockApiService()));
+  // The only place that decides which ApiService is used (AppConfig.apiMode):
+  // the real backend by default, or the built-in fake data with --dart-define=API_MODE=mock.
+  final ApiService api =
+      AppConfig.useMockApi ? MockApiService() : RealApiService(baseUrl: AppConfig.apiBaseUrl);
+  runApp(IdNurseApp(api: api));
 }
 
 class IdNurseApp extends StatefulWidget {
