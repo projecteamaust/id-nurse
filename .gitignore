@@ -1,0 +1,12 @@
+# Secrets: copy backend/.env.example to backend/.env and fill it in. Never commit .env.
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local SQLite demo database
+*.db
+*.db-wal
+*.db-shm
