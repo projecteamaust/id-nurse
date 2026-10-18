@@ -21,10 +21,11 @@ Auth: login returns a JWT (valid 8 hours, configurable). Send it as `Authorizati
 - Patient file number exists
 - Each item exists and has enough stock (otherwise 409)
 - Quantities are positive and within the configured order limit: config `MAX_QTY_PER_ITEM`, default 30 (otherwise 422)
+- The order has at least one item, and each item appears only once (otherwise 422)
 
 ## Common rules
 - Dates are ISO 8601 strings with a timezone, e.g. `2026-10-16T08:45:12+03:00`.
-- Errors use FastAPI's format: `{"detail": "message"}`.
+- Errors use FastAPI's format: `{"detail": "message"}`. Invalid input (422) also returns one message string, not a list.
 - Status codes: 401 not signed in or bad login, 403 wrong role or not your order, 404 not found,
   409 wrong order state or not enough stock, 422 invalid input.
 
@@ -65,9 +66,11 @@ Returns the `user` object from the login response.
 Optional filters: `?category=Wound care`, `?search=gauze`.
 ```json
 [ { "id": 1, "name": "Sterile gauze pads", "sku": "WC-001", "category": "Wound care",
-    "slot_number": 3, "quantity": 42, "min_quantity": 10, "low_stock": false } ]
+    "slot_number": 3, "cabinet_location": "A3", "quantity": 42, "min_quantity": 10, "low_stock": false } ]
 ```
 - `low_stock` is `quantity <= min_quantity`. Out of stock means `quantity == 0`.
+- `slot_number` is the drawer number. `cabinet_location` (added) is where the drawer sits in the cabinet:
+  a row letter (A = top row) and a column number (1 = left), e.g. `"A3"`. The arm visits drawers in this order.
 
 ## `PATCH /items/{id}` (supervisor)
 Sets the stock count after a refill or a stock check.
@@ -95,14 +98,15 @@ Returns 201 with the order object (status `PENDING`).
   "patient": { "file_number": "284913", "name": "Alex Morgan" },
   "nurse":   { "employee_id": "48216", "name": "Maya Chen" },
   "created_at": "2026-10-16T08:45:12+03:00", "approved_at": "2026-10-16T08:45:20+03:00", "completed_at": null,
-  "items": [ { "item_id": 1, "name": "Sterile gauze pads", "slot_number": 3, "qty_requested": 3, "qty_dispensed": 1 } ] }
+  "items": [ { "item_id": 1, "name": "Sterile gauze pads", "slot_number": 3, "cabinet_location": "A3",
+               "qty_requested": 3, "qty_dispensed": 1 } ] }
 ```
 - The frontend calculates progress ("item x of y", current slot) from `qty_dispensed`.
 - For `PARTIAL`, the frontend lists items where `qty_dispensed < qty_requested`.
 
 ## `GET /orders` (nurse, supervisor)
 Used by the nurse Home screen ("Recent requests"), "My recent requests", and later the supervisor dispensing log.
-- `?limit=20` (default 20). Newest first.
+- `?limit=20` (default 20, at most 500). Newest first.
 - A nurse sees only her own orders. A supervisor sees all orders and can filter with `?nurse_id=` and `?status=`.
 - `nurse_id` is the user's numeric `id` (from `GET /users`), not the `employee_id`.
 - `?from=` and `?to=` (`YYYY-MM-DD`, both optional, both inclusive) filter on `created_at`, using the server's local date.
@@ -164,7 +168,7 @@ Adding or editing users is not in the API yet.
 Items that need a refill: every item where `low_stock` is true (`quantity <= min_quantity`).
 ```json
 [ { "id": 4, "name": "10 ml syringe", "sku": "IV-002", "category": "IV and injections",
-    "slot_number": 4, "quantity": 0, "min_quantity": 10, "low_stock": true, "qty_to_minimum": 10 } ]
+    "slot_number": 4, "cabinet_location": "B1", "quantity": 0, "min_quantity": 10, "low_stock": true, "qty_to_minimum": 10 } ]
 ```
 - The item object plus `qty_to_minimum = min_quantity - quantity` (0 when the item is exactly at its minimum).
 - Sorted by `quantity`, lowest first, then by name.

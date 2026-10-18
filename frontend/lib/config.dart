@@ -8,6 +8,15 @@ class AppConfig {
 
   static const demoMode = bool.fromEnvironment('DEMO_MODE', defaultValue: true);
 
+  /// Which ApiService the app uses: `real` = the FastAPI backend (default), `mock` = fake data
+  /// in the app, no backend needed. Example: flutter run -d windows --dart-define=API_MODE=mock
+  static const apiMode = String.fromEnvironment('API_MODE', defaultValue: 'real');
+  static bool get useMockApi => apiMode == 'mock';
+
+  /// Where the backend runs (it listens on 127.0.0.1 only).
+  /// Example: --dart-define=API_BASE_URL=http://127.0.0.1:8000
+  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8000');
+
   /// Employee ID the demo "Simulate card scan" button sends (the seed nurse).
   static const demoNurseId = '48216';
 

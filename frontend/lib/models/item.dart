@@ -5,6 +5,7 @@ class Item {
   final String sku;
   final String category;
   final int slotNumber;
+  final String? cabinetLocation; // e.g. "A1"; sent by the real backend, null in the mock
   final int quantity;
   final int minQuantity;
   final bool lowStock; // quantity <= min_quantity
@@ -15,6 +16,7 @@ class Item {
     required this.sku,
     required this.category,
     required this.slotNumber,
+    this.cabinetLocation,
     required this.quantity,
     required this.minQuantity,
     required this.lowStock,
@@ -28,6 +30,7 @@ class Item {
         sku: json['sku'] as String,
         category: json['category'] as String,
         slotNumber: json['slot_number'] as int,
+        cabinetLocation: json['cabinet_location'] as String?,
         quantity: json['quantity'] as int,
         minQuantity: json['min_quantity'] as int,
         lowStock: json['low_stock'] as bool,
@@ -39,6 +42,7 @@ class Item {
         'sku': sku,
         'category': category,
         'slot_number': slotNumber,
+        'cabinet_location': ?cabinetLocation, // left out when null (the mock has none)
         'quantity': quantity,
         'min_quantity': minQuantity,
         'low_stock': lowStock,

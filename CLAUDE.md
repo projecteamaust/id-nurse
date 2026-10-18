@@ -5,21 +5,21 @@ A nurse enters a patient file number, picks items and quantities, approves the o
 picks the items from a cabinet into a pickup box. Every action is logged for auditing and insurance claims.
 
 Two parts in one repo:
-- Backend (Python/FastAPI) in `app/`
+- Backend (Python/FastAPI, PostgreSQL via SQLAlchemy) in `backend/`
 - Frontend (Flutter) in `frontend/`
 
 Detailed specs live in `docs/`. Read the relevant file before working on that area:
 - `docs/database.md`: tables and columns
 - `docs/api.md`: endpoints, roles, order states (the contract between frontend and backend)
-- `docs/order-flow-and-arm.md`: order flow, ArmController, Serial protocol
+- `docs/order-flow-and-arm.md`: order flow, arm queue and worker, ArmDriver, Serial protocol
 - `docs/prototype-review.md`: every prototype screen with its text, colors, fonts, actions and API calls
 - `design/prototype/`: Figma prototype code (`src/App.tsx` screens, `src/index.css` colors/fonts)
 
 ## Current build order
 1. Tiny backend skeleton with /health (so the project runs and the API contract exists)
 2. Flutter frontend, screen by screen, using MockApiService (fake data)
-3. Real backend: database + seed, login, orders, dispensing with MockArm
-4. Connect the Flutter screens to the real API (replace MockApiService)
+3. Real backend: database + seed, login, orders, dispensing with the arm simulator (done)
+4. Connect the Flutter screens to the real API: RealApiService, mock kept as a fallback (done)
 5. Real arm (Arduino) much later
 
 ## Decisions
@@ -51,28 +51,37 @@ Work on ONE part and ONE task at a time. Do not build backend and frontend featu
 
 ---
 
-## Backend (Python, in app/)
+## Backend (Python, in backend/)
 
 ### Stack
 - Python 3.10+, FastAPI, Uvicorn, Pydantic
-- SQLite via the built-in `sqlite3` module (NO ORM). WAL mode and foreign keys ON
+- PostgreSQL via SQLAlchemy 2 (psycopg driver). The same code runs on SQLite for tests and the local demo.
+  The database is chosen only by `DATABASE_URL` in `backend/.env`
+- `backend/schema.sql` creates the PostgreSQL tables; it must match `app/models.py` (checked by `tests/test_schema.py`)
 - PyJWT for tokens, `hashlib` PBKDF2 (200,000 iterations) for passwords
-- pyserial (real arm only), openpyxl and reportlab (reports, later phase)
-- Tests: built-in `unittest`
+- python-dotenv reads `backend/.env`; pyserial (real arm only); openpyxl and reportlab (reports, later phase)
+- Tests: built-in `unittest` (FastAPI TestClient, in-memory SQLite, arm simulator)
 
 ### Layout
 ```
-app/
-  config.py     all settings from environment variables
-  db.py         schema + connection
-  security.py   password hashing, JWT
-  arm.py        ArmController interface, MockArm, RealArm
-  services.py   ALL business logic (must NOT import FastAPI)
-  main.py       thin API routes + role checks; only calls services
-  seed.py       demo data: 2 users, 2 patients, 6 items
-static/          calibrate.html (supervisor arm calibration page)
+backend/
+  .env.example  every setting with a placeholder (copy to .env; .env is never committed)
+  requirements.txt
+  schema.sql    PostgreSQL tables (for the shared database)
+  app/
+    config.py   all settings from environment variables / .env
+    db.py       engine, sessions, UTC date type, create_tables (SQLite demo/tests)
+    models.py   SQLAlchemy tables
+    schemas.py  Pydantic request/response shapes (field names = docs/api.md)
+    security.py password hashing, JWT
+    services.py ALL business logic, incl. the arm queue (must NOT import FastAPI)
+    arm.py      ArmDriver interface, SimulatedArm, SerialArm
+    worker.py   ArmWorker: background thread that takes queued orders and drives the arm
+    main.py     thin API routes + role checks; only calls services
+    seed.py     demo data: 2 users, 2 patients, 6 items in drawers 1-6
+  tests/        unittest files (each starts with `import tests` to load the test settings)
+static/          calibrate.html (supervisor arm calibration page, later)
 firmware/arm_controller/   Arduino sketch (later)
-tests/           unittest files
 docs/            specs
 design/          Figma prototype (design/prototype/)
 frontend/        Flutter app
@@ -80,26 +89,33 @@ frontend/        Flutter app
 
 ### Backend rules
 1. Business logic goes in `services.py`; routes in `main.py` stay thin.
-2. Never store or log plain-text passwords. Secrets come from env (`SECRET_JWT`), never hardcoded.
+2. Never store or log plain-text passwords. Secrets come from env (`SECRET_JWT`, `DATABASE_URL`,
+   `SEED_SUPERVISOR_PASSWORD`), never hardcoded. The app refuses to start without `SECRET_JWT`.
 3. Stock decreases ONLY after a successful physical pick, never at order creation.
 4. Every important action writes to `audit_log`: login success/failure, order create/approve/cancel,
-   pick results, stock edits, pose saves.
+   pick results, order finished, stock edits, pose saves, problem reports.
 5. Roles: `nurse` and `supervisor`. A nurse can approve/cancel only her own orders; a supervisor can do anything.
-6. Default arm mode is `mock`. The real arm is selected by config, never by editing code.
-7. Server runs on 127.0.0.1 only.
+6. Default arm mode is `mock` (the simulator). The real arm is selected by config (`ARM_MODE=real`), never by editing code.
+7. Server runs on 127.0.0.1 only, with ONE process (one arm = one worker). Do not use `--workers`.
 8. Every new backend feature comes with tests.
 9. Do not rename or remove endpoints or fields in docs/api.md without asking (frontend depends on them).
+10. A table change goes in three places: `models.py`, `schema.sql`, `docs/database.md`.
 
-### Commands (Windows PowerShell)
+### Commands (Windows PowerShell, run inside backend/)
 ```
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python -m app.seed
-uvicorn app.main:app --reload
+copy .env.example .env          # then edit .env: SECRET_JWT, SEED_SUPERVISOR_PASSWORD, DATABASE_URL
+python -m app.seed              # creates the tables (if missing) and the demo data
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 python -m unittest discover tests -v
 ```
 API docs: http://127.0.0.1:8000/docs
+
+PostgreSQL: create an empty database, run `psql -d id_nurse -f schema.sql`, set
+`DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/id_nurse` in `.env`, then `python -m app.seed`.
+Without PostgreSQL, the default `DATABASE_URL=sqlite:///id_nurse.db` makes a local file (delete it to start over).
 
 If PowerShell blocks activating the venv, run once:
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
@@ -118,7 +134,7 @@ If PowerShell blocks activating the venv, run once:
 ```
 frontend/lib/
   screens/    one file per screen
-  services/   ApiService interface, MockApiService, (later) RealApiService
+  services/   ApiService interface, RealApiService (backend, default), MockApiService (fallback)
   models/     data classes matching docs/api.md
   widgets/    reusable widgets
   theme/      colors, fonts, spacing, taken from the Figma design
@@ -151,5 +167,20 @@ frontend/lib/
 flutter pub get
 flutter analyze
 flutter test
-flutter run -d windows
+flutter run -d windows                                  # uses the real backend
+flutter run -d windows --dart-define=API_MODE=mock      # fake data, no backend needed
 ```
+Other build settings: `--dart-define=API_BASE_URL=http://127.0.0.1:8000` (backend address, this is the default),
+`--dart-define=DEMO_MODE=false` (hides the "Simulate card scan" button).
+With the real backend there is no "Simulate robot fault" button (the backend has no fault endpoint).
+
+---
+
+## Running backend and frontend together
+1. Terminal 1, inside `backend/` (first time: venv, `pip install`, `.env` and `python -m app.seed`, see above):
+   `.venv\Scripts\activate` then `uvicorn app.main:app --host 127.0.0.1 --port 8000`
+2. Check http://127.0.0.1:8000/health shows `{"status":"ok"}`.
+3. Terminal 2, inside `frontend/`: `flutter run -d windows`
+4. Sign in as nurse 48216 (scan or type the ID), patient 284913. Supervisor: 31082 with the password from
+   `SEED_SUPERVISOR_PASSWORD`. The arm simulator fills the order in a few seconds (`ARM_SIM_STEP_SECONDS`).
+If the app shows a connection error, the backend is not running or `API_BASE_URL` is wrong.
